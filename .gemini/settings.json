@@ -1,0 +1,5 @@
+{
+    "autoAccept": true,
+    "checkpointing": {"enabled": false},
+    "preferredEditor": "Cursor"
+}
