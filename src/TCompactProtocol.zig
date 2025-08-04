@@ -79,21 +79,92 @@ fn readVarint(self: *Self, comptime T: type) ParseError!T {
     }
 }
 
+fn decodeZigZag(comptime SignedT: type, n: anytype) SignedT {
+    const UnsignedT = std.meta.Int(.unsigned, @bitSizeOf(SignedT));
+    const val: UnsignedT = @intCast(n);
+    const sign_mask = -@as(SignedT, @intCast(val & 1));
+    return @as(SignedT, @intCast(val >> 1)) ^ sign_mask;
+}
+
 fn readI16(self: *Self) ParseError!i16 {
-    return self.readVarint(i16);
+    const v = try self.readVarint(u16);
+    return decodeZigZag(i16, v);
 }
 pub fn readI64(self: *Self) ParseError!i64 {
-    return self.readVarint(i64);
+    const v = try self.readVarint(u64);
+    return decodeZigZag(i64, v);
 }
 
 pub fn readListBegin(self: *Self) ParseError!struct { type: Self.Type, size: u32 } {
-    const byte = try self.reader.takeByte();
-    const list_type = @as(Type, @enumFromInt(byte & 0x0F));
-    const new_size = try self.readVarint(u32);
-    return .{ .type = list_type, .size = new_size };
+    const size_type = try self.reader.takeByte();
+    var size: u32 = size_type >> 4;
+    const list_type: Type = @enumFromInt(size_type & 0x0f);
+    if (size == 15) {
+        size = try self.readVarint(u32);
+    }
+    return .{ .type = list_type, .size = size };
 }
 
 pub fn readListEnd(_: *Self) ParseError!void {}
+
+test "fuzz TCompactProtocol" {
+    const Context = struct {
+        const ApiFn = enum(u4) {
+            readStructBegin,
+            readFieldBegin,
+            readString,
+            readI64,
+            readListBegin,
+            readListEnd,
+            _,
+        };
+
+        fn oneInstr(parser: *Self, alloc: std.mem.Allocator, fn_to_call: ApiFn) !void {
+            switch (fn_to_call) {
+                .readStructBegin => {
+                    _ = try parser.readStructBegin();
+                },
+                .readFieldBegin => {
+                    _ = try parser.readFieldBegin();
+                },
+                .readString => {
+                    _ = try parser.readString(alloc);
+                },
+                .readI64 => {
+                    _ = try parser.readI64();
+                },
+                .readListBegin => {
+                    _ = try parser.readListBegin();
+                },
+                .readListEnd => {
+                    _ = try parser.readListEnd();
+                },
+                else => {},
+            }
+        }
+
+        fn testOne(context: @This(), input: []const u8) !void {
+            _ = context;
+            if (input.len < 2) return;
+
+            var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+            defer arena.deinit();
+            const allocator = arena.allocator();
+
+            var parser = Self{ .reader = std.Io.Reader.fixed(input[2..]) };
+
+            var instructions: [4]u4 = undefined;
+            for (&instructions, 0..) |*ip, i| {
+                ip.* = std.mem.readPackedInt(u4, input[0..2], i * @bitSizeOf(u4), @import("builtin").cpu.arch.endian());
+            }
+
+            for (instructions) |instruction| {
+                oneInstr(&parser, allocator, @enumFromInt(instruction)) catch {};
+            }
+        }
+    };
+    try std.testing.fuzz(Context{}, Context.testOne, .{});
+}
 
 test "readVarint" {
     var data = [_]u8{0x01};
@@ -112,4 +183,28 @@ test "readString" {
     const str = try parser.readString(alloc);
     defer alloc.free(str);
     try std.testing.expectEqualSlices(u8, "foo", str);
+}
+
+test "readListBegin small" {
+    // list<string> size 3
+    var data = [_]u8{0x38};
+    var parser = Self{ .reader = std.Io.Reader.fixed(&data) };
+    const res = try parser.readListBegin();
+    try std.testing.expectEqual(res.type, Type.STRING);
+    try std.testing.expectEqual(res.size, 3);
+}
+
+test "readListBegin large" {
+    // list<i64> size 20
+    var data = [_]u8{ 0xf6, 0x14 };
+    var parser = Self{ .reader = std.Io.Reader.fixed(&data) };
+    const res = try parser.readListBegin();
+    try std.testing.expectEqual(res.type, Type.I64);
+    try std.testing.expectEqual(res.size, 20);
+}
+
+test "readListEnd" {
+    var data = [_]u8{};
+    var parser = Self{ .reader = std.Io.Reader.fixed(&data) };
+    try parser.readListEnd();
 }

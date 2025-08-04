@@ -1,11 +1,7 @@
 const std = @import("std");
 const Parser = @import("TCompactProtocol.zig");
 
-
-
 const Person = struct { userName: []const u8, favoriteNumber: i64, interests: std.ArrayList([]const u8) };
-
-//const SomeErrorDunno = error{UnexpectedEndOfData};
 
 fn parsePerson(p: anytype, alloc: std.mem.Allocator) !Person {
     var person = Person{
@@ -13,6 +9,16 @@ fn parsePerson(p: anytype, alloc: std.mem.Allocator) !Person {
         .favoriteNumber = undefined,
         .interests = std.ArrayList([]const u8).init(alloc),
     };
+    var userName_allocated = false;
+    errdefer {
+        if (userName_allocated) {
+            alloc.free(person.userName);
+        }
+        for (person.interests.items) |item| {
+            alloc.free(item);
+        }
+        person.interests.deinit();
+    }
 
     try p.readStructBegin();
     while (true) {
@@ -25,6 +31,7 @@ fn parsePerson(p: anytype, alloc: std.mem.Allocator) !Person {
             1 => {
                 if (field.tp == .STRING) {
                     person.userName = try p.readString(alloc);
+                    userName_allocated = true;
                 } else {
                     return error.InvalidType;
                 }
@@ -96,18 +103,30 @@ test "parsePerson" {
         103,
         0,
     };
-    //const P = 
-    var parser = Parser{.reader = std.Io.Reader.fixed(data)};
+    var parser = Parser{ .reader = std.Io.Reader.fixed(data) };
+    var person = try parsePerson(&parser, std.testing.allocator);
+    defer std.testing.allocator.free(person.userName);
+    defer {
+        for (person.interests.items) |item| {
+            std.testing.allocator.free(item);
+        }
+        person.interests.deinit();
+    }
 
-    //var parser = Parser(std.io.FixedBufferStream([]const u8).Reader).{ .reader = stream.reader() };
-    const person = try parsePerson(&parser, std.testing.allocator);
-
+    // catch |err| {
+    //     if (err == error.EndOfStream) {
+    //         return;
+    //     } else {
+    //         return err;
+    //     }
+    // };
     try std.testing.expectEqualStrings(person.userName, "John Doe");
-    try std.testing.expectEqual(person.favoriteNumber, 42);
+
     try std.testing.expectEqual(person.interests.items.len, 3);
     try std.testing.expectEqualStrings(person.interests.items[0], "coding");
     try std.testing.expectEqualStrings(person.interests.items[1], "reading");
     try std.testing.expectEqualStrings(person.interests.items[2], "hiking");
+    try std.testing.expectEqual(person.favoriteNumber, 42);
 }
 
 pub fn main() !void {
@@ -154,10 +173,9 @@ pub fn main() !void {
         103,
         0,
     };
-    //var stream = std.io.fixedBufferStream(data);
-    var parser = Parser{.reader = std.Io.Reader.fixed(data)};
+    var parser = Parser{ .reader = std.Io.Reader.fixed(data) };
     const p = try parsePerson(&parser, alloc.allocator());
-    std.debug.print(" {}\n", .{ p});
+    std.debug.print(" {}\n", .{p});
     if (false) {
         //parsePerson.wtf_functions_cant_have_functions();
     }
