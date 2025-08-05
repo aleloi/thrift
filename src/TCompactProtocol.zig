@@ -6,6 +6,7 @@ state: State = State.CLEAR,
 
 // also part of state?
 last_fid: i16 = 0,
+bool_value: bool = false,
 
 reader: std.Io.Reader,
 
@@ -14,21 +15,26 @@ pub const ParseError = std.Io.Reader.Error ||
     error{ InvalidState, NotImplemented, EndOfStream };
 
 const Type = enum(u4) {
-    STOP = 0,
+    STOP = 0x00,
     TRUE = 0x01,
     FALSE = 0x02,
-    I64 = 6,
-    STRING = 8,
-    LIST = 9,
+    BYTE = 0x03,
+    I16 = 0x04,
+    I32 = 0x05,
+    I64 = 0x06,
+    DOUBLE = 0x07,
+    BINARY = 0x08,
+    LIST = 0x09,
+    SET = 0x0A,
+    MAP = 0x0B,
+    STRUCT = 0x0C,
 };
 
 pub fn readStructBegin(self: *Self) ParseError!void {
-    if (self.state != State.CLEAR)
-        return ParseError.InvalidState;
-
-    // TODO save last_fid?
-    self.state = State.FIELD_READ;
-    self.last_fid = 0;
+    if (self.state == State.CLEAR) {
+        self.state = State.FIELD_READ;
+        self.last_fid = 0;
+    }
 }
 
 // The whitepaper and impls in https://github.com/apache/thrift/tree/master/lib and the protocol base class
@@ -39,7 +45,16 @@ pub fn readFieldBegin(self: *Self) ParseError!struct { fid: i16, tp: Type } {
         return .{ .fid = 0, .tp = Type.STOP };
     }
 
-    const tp: Type = @enumFromInt(byte & 0xF);
+    const tp_byte: u8 = byte & 0xF;
+    const tp: Type = switch (tp_byte) {
+        @intFromEnum(Type.TRUE) => Type.TRUE,
+        @intFromEnum(Type.FALSE) => Type.FALSE,
+        else => @enumFromInt(tp_byte),
+    };
+    if (tp == Type.TRUE or tp == Type.FALSE) {
+        self.bool_value = (tp_byte == @intFromEnum(Type.TRUE));
+    }
+
     const delta: u8 = byte >> 4;
     var fid: i16 = undefined;
     if (delta == 0) {
@@ -49,16 +64,12 @@ pub fn readFieldBegin(self: *Self) ParseError!struct { fid: i16, tp: Type } {
         self.last_fid = fid;
     }
 
-    if ((tp == Type.TRUE) or (tp == Type.FALSE)) {
-        return ParseError.NotImplemented;
-    } else {
-        self.state = State.VALUE_READ;
-    }
+    self.state = State.VALUE_READ;
 
     return .{ .fid = fid, .tp = tp };
 }
 
-pub fn readString(self: *Self, alloc: std.mem.Allocator) ParseError![]const u8 {
+pub fn readBinary(self: *Self, alloc: std.mem.Allocator) ParseError![]const u8 {
     const len = try self.readVarint(u64);
     //const buf = try alloc.alloc(u8, len);
     const res = try self.reader.readAlloc(alloc, len);
@@ -68,10 +79,10 @@ pub fn readString(self: *Self, alloc: std.mem.Allocator) ParseError![]const u8 {
 
 fn readVarint(self: *Self, comptime T: type) ParseError!T {
     var res: T = 0;
-    var shift: u4 = 0;
+    var shift: u8 = 0;
     while (true) {
         const byte = try self.reader.takeByte();
-        res |= @as(T, byte & 0x7f) << @as(u4, shift);
+        res |= @as(T, byte & 0x7f) << @intCast(shift);
         if (byte & 0x80 == 0) {
             return res;
         }
@@ -107,15 +118,79 @@ pub fn readListBegin(self: *Self) ParseError!struct { type: Self.Type, size: u32
 
 pub fn readListEnd(_: *Self) ParseError!void {}
 
+fn skipBytes(self: *Self, count: u64) ParseError!void {
+    const discarded = try self.reader.discard(std.Io.Limit.limited64(count));
+    if (discarded < count) {
+        return ParseError.EndOfStream;
+    }
+    std.debug.assert(discarded == count);
+}
+
+pub fn readBool(self: *Self) ParseError!bool {
+    return self.bool_value;
+}
+
+pub fn skip(self: *Self, field_type: Type) ParseError!void {
+    switch (field_type) {
+        .STOP => {},
+        .TRUE, .FALSE => {
+            _ = try self.readBool();
+        },
+        .BYTE => {
+            _ = try self.reader.takeByte();
+        },
+        .DOUBLE => {
+            try self.skipBytes(8);
+        }, // 8 bytes for double
+        .I16 => {
+            _ = try self.readI16();
+        },
+        .I32 => {
+            _ = try self.readVarint(u32);
+        },
+        .I64 => {
+            _ = try self.readI64();
+        },
+        .BINARY => {
+            const len = try self.readVarint(u64);
+            try self.skipBytes(len);
+        },
+        .LIST, .SET => {
+            const list_meta = try self.readListBegin();
+            for (0..list_meta.size) |_| {
+                try self.skip(list_meta.type);
+            }
+            try self.readListEnd();
+        },
+        .MAP => return error.NotImplemented, // Not needed for parquet footer
+        .STRUCT => {
+            try self.readStructBegin();
+            while (true) {
+                const field = try self.readFieldBegin();
+                if (field.tp == .STOP) {
+                    break;
+                }
+                try self.skip(field.tp);
+            }
+            try self.readStructEnd();
+        },
+    }
+}
+
+pub fn readStructEnd(_: *Self) ParseError!void {}
+pub fn readFieldEnd(_: *Self) ParseError!void {}
+
 test "fuzz TCompactProtocol" {
     const Context = struct {
         const ApiFn = enum(u4) {
             readStructBegin,
             readFieldBegin,
-            readString,
+            readBinary,
             readI64,
             readListBegin,
             readListEnd,
+            readStructEnd,
+            skip,
             _,
         };
 
@@ -127,8 +202,8 @@ test "fuzz TCompactProtocol" {
                 .readFieldBegin => {
                     _ = try parser.readFieldBegin();
                 },
-                .readString => {
-                    _ = try parser.readString(alloc);
+                .readBinary => {
+                    _ = try parser.readBinary(alloc);
                 },
                 .readI64 => {
                     _ = try parser.readI64();
@@ -138,6 +213,15 @@ test "fuzz TCompactProtocol" {
                 },
                 .readListEnd => {
                     _ = try parser.readListEnd();
+                },
+                .readStructEnd => {
+                    _ = try parser.readStructEnd();
+                },
+                .skip => {
+                    const types = [_]Type{ .STOP, .BYTE, .DOUBLE, .I16, .I32, .I64, .BINARY, .LIST, .SET, .MAP, .STRUCT };
+                    for (types) |t| {
+                        parser.skip(t) catch {};
+                    }
                 },
                 else => {},
             }
@@ -176,11 +260,11 @@ test "readVarint" {
     try std.testing.expectEqual(@as(u64, 129), try parser.readVarint(u64));
 }
 
-test "readString" {
+test "readBinary" {
     var data = [_]u8{ 0x03, 'f', 'o', 'o' };
     var parser = Self{ .reader = std.Io.Reader.fixed(&data) };
     const alloc = std.testing.allocator;
-    const str = try parser.readString(alloc);
+    const str = try parser.readBinary(alloc);
     defer alloc.free(str);
     try std.testing.expectEqualSlices(u8, "foo", str);
 }
@@ -190,7 +274,7 @@ test "readListBegin small" {
     var data = [_]u8{0x38};
     var parser = Self{ .reader = std.Io.Reader.fixed(&data) };
     const res = try parser.readListBegin();
-    try std.testing.expectEqual(res.type, Type.STRING);
+    try std.testing.expectEqual(res.type, Type.BINARY);
     try std.testing.expectEqual(res.size, 3);
 }
 
@@ -207,4 +291,31 @@ test "readListEnd" {
     var data = [_]u8{};
     var parser = Self{ .reader = std.Io.Reader.fixed(&data) };
     try parser.readListEnd();
+}
+
+test "readStructEnd" {
+    var data = [_]u8{};
+    var parser = Self{ .reader = std.Io.Reader.fixed(&data) };
+    try parser.readStructEnd();
+}
+
+test "readI64" {
+    const data = &[_]u8{
+        0x16,
+        0xa4,
+        0x8b,
+        0xb0,
+        0x99,
+        0x09,
+        0x00,
+    };
+    var parser = Self{ .reader = std.Io.Reader.fixed(data) };
+    try parser.readStructBegin();
+    const field = try parser.readFieldBegin();
+    try std.testing.expectEqual(field.fid, 1);
+    try std.testing.expectEqual(field.tp, Type.I64);
+    const value = try parser.readI64();
+    try std.testing.expectEqual(value, 1234567890);
+    try parser.readFieldEnd();
+    try parser.readStructEnd();
 }

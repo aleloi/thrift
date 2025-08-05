@@ -1,6 +1,7 @@
 const std = @import("std");
 const Parser = @import("TCompactProtocol.zig");
 const PersonModule = @import("person.zig");
+const ComplexPersonModule = @import("complex_person.zig");
 
 pub fn main() !void {
     const Alloc: type = std.heap.DebugAllocator(.{});
