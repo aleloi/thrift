@@ -1,5 +1,5 @@
 const std = @import("std");
-const Parser = @import("TCompactProtocol.zig");
+const Parser = @import("TCompactProtocolReader.zig");
 
 pub const Person = struct { userName: []const u8, favoriteNumber: i64, interests: std.ArrayList([]const u8) };
 

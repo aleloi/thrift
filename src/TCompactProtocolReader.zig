@@ -330,3 +330,8 @@ test "readI64" {
     try parser.readFieldEnd();
     try parser.readStructEnd();
 }
+
+
+// test "fail" {
+//     std.debug.assert(false);
+// }
