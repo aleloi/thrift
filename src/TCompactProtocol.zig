@@ -12,9 +12,9 @@ reader: std.Io.Reader,
 
 pub const ParseError = std.Io.Reader.Error ||
     std.mem.Allocator.Error ||
-    error{ InvalidState, NotImplemented, EndOfStream };
+    error{ InvalidState, NotImplemented, EndOfStream, CantParseUnion, RequiredFieldMissing };
 
-const Type = enum(u4) {
+pub const Type = enum(u4) {
     STOP = 0x00,
     TRUE = 0x01,
     FALSE = 0x02,
@@ -37,9 +37,14 @@ pub fn readStructBegin(self: *Self) ParseError!void {
     }
 }
 
+pub const FieldMeta = struct {
+    fid: i16,
+    tp: Type
+};
+
 // The whitepaper and impls in https://github.com/apache/thrift/tree/master/lib and the protocol base class
 // has readFieldBegin also return a field name, but it's always empty for compact protocol.
-pub fn readFieldBegin(self: *Self) ParseError!struct { fid: i16, tp: Type } {
+pub fn readFieldBegin(self: *Self) ParseError!FieldMeta {
     const byte: u8 = try self.reader.takeByte();
     if (byte == @intFromEnum(Type.STOP)) {
         return .{ .fid = 0, .tp = Type.STOP };
@@ -97,10 +102,16 @@ fn decodeZigZag(comptime SignedT: type, n: anytype) SignedT {
     return @as(SignedT, @intCast(val >> 1)) ^ sign_mask;
 }
 
-fn readI16(self: *Self) ParseError!i16 {
+pub fn readI16(self: *Self) ParseError!i16 {
     const v = try self.readVarint(u16);
     return decodeZigZag(i16, v);
 }
+
+pub fn readI32(self: *Self) ParseError!i32 {
+    const v = try self.readVarint(u32);
+    return decodeZigZag(i16, v);
+}
+
 pub fn readI64(self: *Self) ParseError!i64 {
     const v = try self.readVarint(u64);
     return decodeZigZag(i64, v);

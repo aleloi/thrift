@@ -56,5 +56,6 @@ pub fn main() !void {
 }
 
 test {
-    std.testing.refAllDecls(@This());
+    std.testing.refAllDeclsRecursive(@This());
+    //std.debug.assert(false);
 }
