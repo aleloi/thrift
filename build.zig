@@ -20,11 +20,36 @@ pub fn build(b: *std.Build) void {
     const check = b.step("check", "Check if it compiles");
     check.dependOn(&exe.step);
 
-    const exe_tests = b.addTest(.{
-        .root_module = exe.root_module,
-    });
+    // const exe_tests = b.addTest(.{
+    //     .root_module = exe.root_module,
+    // });
 
-    const run_exe_tests = b.addRunArtifact(exe_tests);
     const test_step = b.step("test", "Run tests");
-    test_step.dependOn(&run_exe_tests.step);
+
+
+    const test_files: []const [] const u8 = &.{
+        "src/complex_person.zig",
+        "src/main.zig",
+        "src/person.zig",
+        "src/TCompactProtocolReader.zig",
+        "src/TCompactProtocolWriter.zig"
+        };
+    for (test_files) |test_file| {
+        const test_set = b.addTest(.{
+            .root_module = b.createModule(.{
+                .root_source_file=b.path(test_file),
+                .target = target,
+                .optimize = optimize
+                }),
+            //.target = target,
+            //.optimize = optimize,
+        });
+        //test_set.root_module.addImport("rope", rope_mod);
+        var run_test_set = b.addRunArtifact(test_set);
+        run_test_set.has_side_effects = true;
+        test_step.dependOn(&run_test_set.step);
+    }
+
+    // const run_exe_tests = b.addRunArtifact(exe_tests);
+    // test_step.dependOn(&run_exe_tests.step);
 }

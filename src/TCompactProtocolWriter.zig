@@ -1,13 +1,37 @@
 const std = @import("std");
 const Reader = @import("TCompactProtocolReader.zig");
+const builtin = @import("builtin");
+
 
 const Self = @This();
+
+const State = enum {
+    CLEAR,
+    FIELD_WRITE,
+    VALUE_WRITE,
+    CONTAINER_WRITE,
+    BOOL_WRITE,
+    // FIELD_READ = 5
+    // CONTAINER_READ = 6
+    // VALUE_READ = 7
+    // BOOL_READ = 8
+};
 
 writer: std.Io.Writer,
 last_fid: i16 = 0,
 bool_fid: i16 = -1,
+state: State = .CLEAR,
 
-pub const WriteError = std.Io.Writer.Error;
+fn transition(self: *Self, allowed: []const State, next: State) WriterError ! void {
+    if (builtin.mode == .Debug) {
+        if (std.mem.indexOfScalar(State, allowed, self.state) == null) {
+            return error.InvalidState;
+        }
+    }
+    self.state = next;
+}
+
+pub const WriterError = std.Io.Writer.Error || error {InvalidState};
 
 fn encodeZigZag(comptime SignedT: type, n: SignedT) std.meta.Int(.unsigned, @bitSizeOf(SignedT)) {
     const UnsignedT = std.meta.Int(.unsigned, @bitSizeOf(SignedT));
@@ -55,7 +79,7 @@ pub const ApiCall = union(enum) {
     ListEnd,
 };
 
-pub fn write(self: *Self, api_call: ApiCall) WriteError!void {
+pub fn write(self: *Self, api_call: ApiCall) WriterError!void {
     switch (api_call) {
         .StructBegin => {
             self.last_fid = 0;
@@ -103,7 +127,7 @@ pub fn write(self: *Self, api_call: ApiCall) WriteError!void {
     }
 }
 
-pub fn writeMany(self: *Self, api_calls: []const ApiCall) WriteError!void {
+pub fn writeMany(self: *Self, api_calls: []const ApiCall) WriterError!void {
     for (api_calls) |api_call| {
         try self.write(api_call);
     }
