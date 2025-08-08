@@ -154,7 +154,8 @@ pub fn skip(self: *Self, field_type: Type) ParseError!void {
             try self.skipBytes(8);
         }, // 8 bytes for double
         .I16 => {
-            _ = try self.readI16();
+            const x = try self.readI16();
+            std.debug.print("Skipping {}: i16\n", .{x});
         },
         .I32 => {
             _ = try self.readVarint(u32);

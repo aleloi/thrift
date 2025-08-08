@@ -18,36 +18,27 @@ fn encodeZigZag(comptime SignedT: type, n: SignedT) std.meta.Int(.unsigned, @bit
 
 fn writeVarint(self: *Self, comptime T: type, n: T) !void {
     var val = n;
+    std.debug.print("Writing varint: {}, hex: ", .{n});
     while (true) {
         if ((val & ~@as(T, 0x7F)) == 0) {
-            try self.writer.writeByte(@intCast(val));
+            const b: u8 = @intCast(val);
+            std.debug.print("0x{x} ", .{b});
+            try self.writer.writeByte(b);
             break;
         } else {
-            try self.writer.writeByte(@intCast((val & 0x7F) | 0x80));
+            const b: u8 = @intCast((val & 0x7F) | 0x80);
+            std.debug.print("0x{x} ", .{b});
+            try self.writer.writeByte(b);
             val = val >> 7;
         }
     }
+    std.debug.print("\n", .{});
 }
 
 pub const ListBeginMeta = struct {
     elem_type: Reader.Type,
     size: u32,
 };
-
-// pub const ApiFn = enum {
-//     StructBegin,
-//     StructEnd,
-//     FieldBegin,
-//     FieldEnd,
-//     FieldStop,
-//     Binary,
-//     Bool,
-//     I16,
-//     I32,
-//     I64,
-//     ListBegin,
-//     ListEnd,
-// };
 
 pub const ApiCall = union(enum) {
     StructBegin,
@@ -74,7 +65,9 @@ pub fn write(self: *Self, api_call: ApiCall) WriteError!void {
             const delta = field.fid - self.last_fid;
             if (delta > 0 and delta <= 15) {
                 const delta8: u8 = @intCast(delta);
-                try self.writer.writeByte(@as(u8, delta8 << 4) | @as(u8, @intFromEnum(field.tp)));
+                const b: u8 = @as(u8, delta8 << 4) | @as(u8, @intFromEnum(field.tp));
+                std.debug.print("Field begin, writing 0x{x}, {}\n", .{b, field});
+                try self.writer.writeByte(b);
             } else {
                 try self.writer.writeByte(@intFromEnum(field.tp));
                 try self.writeVarint(u16, encodeZigZag(i16, field.fid));
