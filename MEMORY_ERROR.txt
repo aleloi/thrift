@@ -1,0 +1,1783 @@
+ thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 1.1
+    frame #0: 0x00000001000923a8 test`complex_person.Animal.write(self=0x0000000100109840, w=0x000000016fdfda68) at complex_person.zig:59:20
+   56       }
+   57
+   58       pub fn write(self: *const Animal, w: *Writer) Writer.WriterError!void {
+-> 59           try w.write(.StructBegin);
+   60           switch (self.*) {
+   61               .age_of_dog => |age| {
+   62                   try w.writeMany(&[_]Writer.ApiCall{
+Target 0: (test) stopped.
+(lldb) register read
+General Purpose Registers:
+        x0 = 0x000000016fdfe6e0
+        x1 = 0x0000000100109840  test`__anon_15303
+        x2 = 0x000000016fdfda68
+        x3 = 0x0000000000000001
+        x4 = 0x000000016fdfd600
+        x5 = 0x0000000000000002
+        x6 = 0x000000000000000a
+        x7 = 0x0000000000000000
+        x8 = 0x000000016fdfda68
+        x9 = 0x06c99658f4b300c4
+       x10 = 0x0000000000000000
+       x11 = 0x000000000000001c
+       x12 = 0x0000000100106c14
+       x13 = 0x0000000000000000
+       x14 = 0x000000000000000d
+       x15 = 0x000000000000000f
+       x16 = 0x000000018835d824  libsystem_platform.dylib`os_unfair_lock_unlock
+       x17 = 0x00000001f7486520
+       x18 = 0x0000000000000000
+       x19 = 0x00000001f61b80b0  lsl::sAllocatorBuffer
+       x20 = 0x00000001f61b8018  lsl::sMemoryManagerBuffer
+       x21 = 0x000000016fdfe8a8
+       x22 = 0x0fffffff0009d5d6
+       x23 = 0x00000001f61b8018  lsl::sMemoryManagerBuffer
+       x24 = 0x00000001f61b8150  dyld`lsl::sPoolBytes + 96
+       x25 = 0x000000016fdfea10
+       x26 = 0x0000000000000000
+       x27 = 0x0000000000000000
+       x28 = 0x0000000000000000
+        fp = 0x000000016fdfd880
+        lr = 0x0000000100092090  test`complex_person.test.Animal.write + 188 at complex_person.zig:445:21
+        sp = 0x000000016fdfd680
+        pc = 0x00000001000923a8  test`complex_person.Animal.write + 64 at complex_person.zig:59:20
+      cpsr = 0x60001000
+
+(lldb) disassemble --frame --mixed
+
+** 58       pub fn write(self: *const Animal, w: *Writer) Writer.WriterError!void {
+
+test`complex_person.Animal.write:
+    0x100092368 <+0>:   stp    x28, x27, [sp, #-0x20]!
+    0x10009236c <+4>:   stp    x29, x30, [sp, #0x10]
+    0x100092370 <+8>:   add    x29, sp, #0x10
+    0x100092374 <+12>:  sub    sp, sp, #0x1f0
+    0x100092378 <+16>:  sub    x8, x29, #0xb0
+    0x10009237c <+20>:  str    x8, [sp, #0x48]
+    0x100092380 <+24>:  str    x0, [sp, #0x50]
+    0x100092384 <+28>:  str    x1, [sp, #0x58]
+    0x100092388 <+32>:  adrp   x8, 174
+    0x10009238c <+36>:  ldr    x8, [x8, #0x10]
+    0x100092390 <+40>:  ldr    x8, [x8]
+    0x100092394 <+44>:  stur   x8, [x29, #-0x18]
+
+   56       }
+   57
+** 58       pub fn write(self: *const Animal, w: *Writer) Writer.WriterError!void {
+
+    0x100092398 <+48>:  str    x1, [sp, #0x68]
+    0x10009239c <+52>:  mov    x8, x2
+    0x1000923a0 <+56>:  str    x8, [sp, #0x70]
+    0x1000923a4 <+60>:  str    x2, [sp, #0x78]
+
+-> 59           try w.write(.StructBegin);
+
+->  0x1000923a8 <+64>:  ldr    x1, [sp, #0x78]
+    0x1000923ac <+68>:  adrp   x2, 119
+    0x1000923b0 <+72>:  add    x2, x2, #0x848 ; __anon_15303 + 8
+    0x1000923b4 <+76>:  bl     0x100003c48    ; TCompactProtocolWriter.write at TCompactProtocolWriter.zig:102
+    0x1000923b8 <+80>:  str    w0, [sp, #0x64]
+    0x1000923bc <+84>:  and    w8, w0, #0xffff
+    0x1000923c0 <+88>:  cbz    w8, 0x100092400 ; <+152> at complex_person.zig
+    0x1000923c4 <+92>:  b      0x1000923c8    ; <+96> at complex_person.zig
+    0x1000923c8 <+96>:  ldr    x0, [sp, #0x50]
+    0x1000923cc <+100>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x1000923d0 <+104>: ldur   x9, [x29, #-0x18]
+    0x1000923d4 <+108>: adrp   x8, 174
+    0x1000923d8 <+112>: ldr    x8, [x8, #0x10]
+    0x1000923dc <+116>: ldr    x8, [x8]
+    0x1000923e0 <+120>: subs   x8, x8, x9
+    0x1000923e4 <+124>: b.ne   0x100092608    ; <+672> at complex_person.zig:68:17
+    0x1000923e8 <+128>: b      0x1000923ec    ; <+132> at complex_person.zig
+    0x1000923ec <+132>: ldr    w0, [sp, #0x64]
+    0x1000923f0 <+136>: add    sp, sp, #0x1f0
+    0x1000923f4 <+140>: ldp    x29, x30, [sp, #0x10]
+    0x1000923f8 <+144>: ldp    x28, x27, [sp], #0x20
+    0x1000923fc <+148>: ret
+    0x100092400 <+152>: ldr    x8, [sp, #0x58]
+
+** 60           switch (self.*) {
+   61               .age_of_dog => |age| {
+
+    0x100092404 <+156>: ldr    w8, [x8]
+    0x100092408 <+160>: str    w8, [sp, #0x84]
+    0x10009240c <+164>: ldrb   w8, [sp, #0x86]
+    0x100092410 <+168>: str    w8, [sp, #0x44]
+    0x100092414 <+172>: tbnz   w8, #0x0, 0x1000924fc ; <+404> at complex_person.zig
+    0x100092418 <+176>: b      0x10009241c    ; <+180> at complex_person.zig
+    0x10009241c <+180>: ldr    w8, [sp, #0x44]
+    0x100092420 <+184>: and    w8, w8, #0x1
+    0x100092424 <+188>: mov    w9, #0x0 ; =0
+    0x100092428 <+192>: and    w9, w9, #0x1
+    0x10009242c <+196>: subs   w8, w8, w9
+    0x100092430 <+200>: b.eq   0x10009245c    ; <+244> at complex_person.zig:60:17
+    0x100092434 <+204>: b      0x1000925a0    ; <+568> at complex_person.zig
+    0x100092438 <+208>: ldr    x0, [sp, #0x50]
+
+   74               },
+   75           }
+** 76           try w.write(.FieldStop);
+
+    0x10009243c <+212>: ldr    x1, [sp, #0x78]
+    0x100092440 <+216>: adrp   x2, 119
+    0x100092444 <+220>: add    x2, x2, #0x8a8 ; __anon_15303 + 104
+    0x100092448 <+224>: bl     0x100003c48    ; TCompactProtocolWriter.write at TCompactProtocolWriter.zig:102
+    0x10009244c <+228>: str    w0, [sp, #0x40]
+    0x100092450 <+232>: and    w8, w0, #0xffff
+    0x100092454 <+236>: cbnz   w8, 0x100092624 ; <+700> at complex_person.zig
+    0x100092458 <+240>: b      0x10009265c    ; <+756> at complex_person.zig
+
+** 60           switch (self.*) {
+
+    0x10009245c <+244>: ldrh   w8, [sp, #0x84]
+    0x100092460 <+248>: strh   w8, [sp, #0x80]
+
+** 62                   try w.writeMany(&[_]Writer.ApiCall{
+
+    0x100092464 <+252>: ldr    x9, [sp, #0x78]
+    0x100092468 <+256>: str    x9, [sp, #0x28]
+
+** 63                       .{.FieldBegin = .{.tp = .I16, .fid = @intFromEnum(FieldTag.age_of_dog)}},
+   64                       .{.I16 = age},
+   65                       .FieldEnd});
+
+    0x10009246c <+260>: strh   w8, [sp, #0x88]
+    0x100092470 <+264>: mov    w8, #0x7 ; =7
+    0x100092474 <+268>: and    w8, w8, #0xf
+    0x100092478 <+272>: strb   w8, [sp, #0x98]
+    0x10009247c <+276>: adrp   x8, 119
+    0x100092480 <+280>: add    x8, x8, #0x860 ; __anon_15303 + 32
+    0x100092484 <+284>: ldr    q0, [x8]
+    0x100092488 <+288>: add    x1, sp, #0xa0
+    0x10009248c <+292>: str    q0, [sp, #0xa0]
+    0x100092490 <+296>: ldr    x8, [x8, #0x10]
+    0x100092494 <+300>: str    x8, [sp, #0xb0]
+    0x100092498 <+304>: ldur   q0, [sp, #0x88]
+    0x10009249c <+308>: stur   q0, [x1, #0x18]
+    0x1000924a0 <+312>: ldr    x8, [sp, #0x98]
+    0x1000924a4 <+316>: str    x8, [sp, #0xc8]
+    0x1000924a8 <+320>: adrp   x8, 119
+    0x1000924ac <+324>: add    x8, x8, #0x878 ; __anon_15303 + 56
+    0x1000924b0 <+328>: ldr    q0, [x8]
+    0x1000924b4 <+332>: str    q0, [sp, #0xd0]
+    0x1000924b8 <+336>: ldr    x8, [x8, #0x10]
+    0x1000924bc <+340>: str    x8, [sp, #0xe0]
+    0x1000924c0 <+344>: add    x0, sp, #0xf0
+    0x1000924c4 <+348>: str    x0, [sp, #0x30]
+    0x1000924c8 <+352>: mov    w8, #0x48 ; =72
+    0x1000924cc <+356>: mov    x2, x8
+    0x1000924d0 <+360>: bl     0x10010515c    ; __ubsan_handle_alignment_assumption + 468
+    0x1000924d4 <+364>: ldr    x0, [sp, #0x50]
+    0x1000924d8 <+368>: ldr    x1, [sp, #0x28]
+    0x1000924dc <+372>: ldr    x2, [sp, #0x30]
+
+** 62                   try w.writeMany(&[_]Writer.ApiCall{
+
+    0x1000924e0 <+376>: mov    w8, #0x3 ; =3
+    0x1000924e4 <+380>: mov    x3, x8
+    0x1000924e8 <+384>: bl     0x100001508    ; TCompactProtocolWriter.writeMany at TCompactProtocolWriter.zig:197
+    0x1000924ec <+388>: str    w0, [sp, #0x3c]
+    0x1000924f0 <+392>: and    w8, w0, #0xffff
+    0x1000924f4 <+396>: cbnz   w8, 0x1000925a8 ; <+576> at complex_person.zig
+    0x1000924f8 <+400>: b      0x1000925e0    ; <+632> at complex_person.zig:62:17
+    0x1000924fc <+404>: ldr    x9, [sp, #0x48]
+    0x100092500 <+408>: ldrh   w8, [sp, #0x84]
+    0x100092504 <+412>: strh   w8, [sp, #0x82]
+
+   66               },
+   67               .number_of_fish => |n| {
+** 68                   try w.writeMany(&[_]Writer.ApiCall{
+
+    0x100092508 <+416>: ldr    x10, [sp, #0x78]
+    0x10009250c <+420>: str    x10, [sp, #0x10]
+
+** 69                       .{.FieldBegin = .{.tp = .I16, .fid = @intFromEnum(FieldTag.number_of_fish)}},
+   70                       .{.I16 = n},
+   71                       .FieldEnd
+
+    0x100092510 <+424>: sturh  w8, [x29, #-0xc8]
+    0x100092514 <+428>: mov    w8, #0x7 ; =7
+    0x100092518 <+432>: and    w8, w8, #0xf
+    0x10009251c <+436>: sturb  w8, [x29, #-0xb8]
+    0x100092520 <+440>: adrp   x8, 119
+    0x100092524 <+444>: add    x8, x8, #0x890 ; __anon_15303 + 80
+    0x100092528 <+448>: ldr    q0, [x8]
+    0x10009252c <+452>: sub    x1, x29, #0xb0
+    0x100092530 <+456>: str    q0, [x9]
+    0x100092534 <+460>: ldr    x8, [x8, #0x10]
+    0x100092538 <+464>: stur   x8, [x29, #-0xa0]
+    0x10009253c <+468>: ldur   q0, [x29, #-0xc8]
+    0x100092540 <+472>: stur   q0, [x1, #0x18]
+    0x100092544 <+476>: ldur   x8, [x29, #-0xb8]
+    0x100092548 <+480>: stur   x8, [x29, #-0x88]
+    0x10009254c <+484>: adrp   x8, 119
+    0x100092550 <+488>: add    x8, x8, #0x878 ; __anon_15303 + 56
+    0x100092554 <+492>: ldr    q0, [x8]
+    0x100092558 <+496>: str    q0, [x9, #0x30]
+    0x10009255c <+500>: ldr    x8, [x8, #0x10]
+    0x100092560 <+504>: stur   x8, [x29, #-0x70]
+    0x100092564 <+508>: sub    x0, x29, #0x60
+    0x100092568 <+512>: str    x0, [sp, #0x18]
+    0x10009256c <+516>: mov    w8, #0x48 ; =72
+    0x100092570 <+520>: mov    x2, x8
+    0x100092574 <+524>: bl     0x10010515c    ; __ubsan_handle_alignment_assumption + 468
+    0x100092578 <+528>: ldr    x0, [sp, #0x50]
+    0x10009257c <+532>: ldr    x1, [sp, #0x10]
+    0x100092580 <+536>: ldr    x2, [sp, #0x18]
+
+** 68                   try w.writeMany(&[_]Writer.ApiCall{
+
+    0x100092584 <+540>: mov    w8, #0x3 ; =3
+    0x100092588 <+544>: mov    x3, x8
+    0x10009258c <+548>: bl     0x100001508    ; TCompactProtocolWriter.writeMany at TCompactProtocolWriter.zig:197
+    0x100092590 <+552>: str    w0, [sp, #0x24]
+    0x100092594 <+556>: and    w8, w0, #0xffff
+    0x100092598 <+560>: cbnz   w8, 0x1000925e4 ; <+636> at complex_person.zig
+    0x10009259c <+564>: b      0x100092620    ; <+696> at complex_person.zig:68:17
+    0x1000925a0 <+568>: ldr    x0, [sp, #0x50]
+
+** 60           switch (self.*) {
+
+    0x1000925a4 <+572>: bl     0x100002a18    ; debug.FullPanic((function 'defaultPanic')).corruptSwitch at debug.zig:110
+    0x1000925a8 <+576>: ldr    x0, [sp, #0x50]
+
+** 62                   try w.writeMany(&[_]Writer.ApiCall{
+
+    0x1000925ac <+580>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x1000925b0 <+584>: ldur   x9, [x29, #-0x18]
+    0x1000925b4 <+588>: adrp   x8, 174
+    0x1000925b8 <+592>: ldr    x8, [x8, #0x10]
+    0x1000925bc <+596>: ldr    x8, [x8]
+    0x1000925c0 <+600>: subs   x8, x8, x9
+    0x1000925c4 <+604>: b.ne   0x100092608    ; <+672> at complex_person.zig:68:17
+    0x1000925c8 <+608>: b      0x1000925cc    ; <+612> at complex_person.zig
+    0x1000925cc <+612>: ldr    w0, [sp, #0x3c]
+    0x1000925d0 <+616>: add    sp, sp, #0x1f0
+    0x1000925d4 <+620>: ldp    x29, x30, [sp, #0x10]
+    0x1000925d8 <+624>: ldp    x28, x27, [sp], #0x20
+    0x1000925dc <+628>: ret
+    0x1000925e0 <+632>: b      0x100092438    ; <+208> at complex_person.zig
+    0x1000925e4 <+636>: ldr    x0, [sp, #0x50]
+
+** 68                   try w.writeMany(&[_]Writer.ApiCall{
+
+    0x1000925e8 <+640>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x1000925ec <+644>: ldur   x9, [x29, #-0x18]
+    0x1000925f0 <+648>: adrp   x8, 174
+    0x1000925f4 <+652>: ldr    x8, [x8, #0x10]
+    0x1000925f8 <+656>: ldr    x8, [x8]
+    0x1000925fc <+660>: subs   x8, x8, x9
+    0x100092600 <+664>: b.eq   0x10009260c    ; <+676> at complex_person.zig
+    0x100092604 <+668>: b      0x100092608    ; <+672> at complex_person.zig:68:17
+    0x100092608 <+672>: bl     0x1001050f0    ; __ubsan_handle_alignment_assumption + 360
+    0x10009260c <+676>: ldr    w0, [sp, #0x24]
+    0x100092610 <+680>: add    sp, sp, #0x1f0
+    0x100092614 <+684>: ldp    x29, x30, [sp, #0x10]
+    0x100092618 <+688>: ldp    x28, x27, [sp], #0x20
+    0x10009261c <+692>: ret
+    0x100092620 <+696>: b      0x100092438    ; <+208> at complex_person.zig
+    0x100092624 <+700>: ldr    x0, [sp, #0x50]
+
+** 76           try w.write(.FieldStop);
+
+    0x100092628 <+704>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x10009262c <+708>: ldur   x9, [x29, #-0x18]
+    0x100092630 <+712>: adrp   x8, 174
+    0x100092634 <+716>: ldr    x8, [x8, #0x10]
+    0x100092638 <+720>: ldr    x8, [x8]
+    0x10009263c <+724>: subs   x8, x8, x9
+    0x100092640 <+728>: b.ne   0x100092608    ; <+672> at complex_person.zig:68:17
+    0x100092644 <+732>: b      0x100092648    ; <+736> at complex_person.zig
+    0x100092648 <+736>: ldr    w0, [sp, #0x40]
+    0x10009264c <+740>: add    sp, sp, #0x1f0
+    0x100092650 <+744>: ldp    x29, x30, [sp, #0x10]
+    0x100092654 <+748>: ldp    x28, x27, [sp], #0x20
+    0x100092658 <+752>: ret
+    0x10009265c <+756>: ldr    x0, [sp, #0x50]
+
+** 77           try w.write(.StructEnd);
+   78       }
+   79   };
+
+    0x100092660 <+760>: ldr    x1, [sp, #0x78]
+    0x100092664 <+764>: adrp   x2, 119
+    0x100092668 <+768>: add    x2, x2, #0x8c0 ; __anon_15303 + 128
+    0x10009266c <+772>: bl     0x100003c48    ; TCompactProtocolWriter.write at TCompactProtocolWriter.zig:102
+    0x100092670 <+776>: str    w0, [sp, #0xc]
+    0x100092674 <+780>: and    w8, w0, #0xffff
+    0x100092678 <+784>: cbz    w8, 0x1000926b8 ; <+848> at complex_person.zig:77:9
+    0x10009267c <+788>: b      0x100092680    ; <+792> at complex_person.zig
+    0x100092680 <+792>: ldr    x0, [sp, #0x50]
+    0x100092684 <+796>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x100092688 <+800>: ldur   x9, [x29, #-0x18]
+    0x10009268c <+804>: adrp   x8, 174
+    0x100092690 <+808>: ldr    x8, [x8, #0x10]
+    0x100092694 <+812>: ldr    x8, [x8]
+    0x100092698 <+816>: subs   x8, x8, x9
+    0x10009269c <+820>: b.ne   0x100092608    ; <+672> at complex_person.zig:68:17
+    0x1000926a0 <+824>: b      0x1000926a4    ; <+828> at complex_person.zig
+    0x1000926a4 <+828>: ldr    w0, [sp, #0xc]
+    0x1000926a8 <+832>: add    sp, sp, #0x1f0
+    0x1000926ac <+836>: ldp    x29, x30, [sp, #0x10]
+    0x1000926b0 <+840>: ldp    x28, x27, [sp], #0x20
+    0x1000926b4 <+844>: ret
+    0x1000926b8 <+848>: ldur   x9, [x29, #-0x18]
+    0x1000926bc <+852>: adrp   x8, 174
+    0x1000926c0 <+856>: ldr    x8, [x8, #0x10]
+    0x1000926c4 <+860>: ldr    x8, [x8]
+    0x1000926c8 <+864>: subs   x8, x8, x9
+    0x1000926cc <+868>: b.ne   0x100092608    ; <+672> at complex_person.zig:68:17
+    0x1000926d0 <+872>: b      0x1000926d4    ; <+876> at complex_person.zig
+    0x1000926d4 <+876>: mov    w0, #0x0 ; =0
+    0x1000926d8 <+880>: add    sp, sp, #0x1f0
+    0x1000926dc <+884>: ldp    x29, x30, [sp, #0x10]
+    0x1000926e0 <+888>: ldp    x28, x27, [sp], #0x20
+    0x1000926e4 <+892>: ret
+(lldb) s
+Process 91415 stopped
+* thread #1, queue = 'com.apple.main-thread', stop reason = step in
+    frame #0: 0x0000000100003c74 test`TCompactProtocolWriter.write(self=0xaaaaaaaaaaaaaaaa, api_call=TCompactProtocolWriter.ApiCall @ 0x0000000100109848) at TCompactProtocolWriter.zig:102:63
+   99       ListEnd,
+   100  };
+   101
+-> 102  pub fn write(self: *Self, api_call: ApiCall) WriterError!void {
+   103      switch (api_call) {
+   104          .StructBegin => {
+   105              try self.last_fids.appendBounded(self.last_fid);
+Target 0: (test) stopped.
+(lldb) s
+Process 91415 stopped
+* thread #1, queue = 'com.apple.main-thread', stop reason = step in
+    frame #0: 0x0000000100003c80 test`TCompactProtocolWriter.write(self=0x000000016fdfda68, api_call=TCompactProtocolWriter.ApiCall @ 0x0000000100109848) at TCompactProtocolWriter.zig:103:13
+   100  };
+   101
+   102  pub fn write(self: *Self, api_call: ApiCall) WriterError!void {
+-> 103      switch (api_call) {
+   104          .StructBegin => {
+   105              try self.last_fids.appendBounded(self.last_fid);
+   106              std.debug.print("check states is: {}\n", .{check_states});
+Target 0: (test) stopped.
+(lldb) register read
+General Purpose Registers:
+        x0 = 0x000000016fdfe6e0
+        x1 = 0x000000016fdfda68
+        x2 = 0x0000000100109848  test`__anon_15303 + 8
+        x3 = 0x0000000000000001
+        x4 = 0x000000016fdfd600
+        x5 = 0x0000000000000002
+        x6 = 0x000000000000000a
+        x7 = 0x0000000000000000
+        x8 = 0x000000016fdfda68
+        x9 = 0x06c99658f4b300c4
+       x10 = 0x0000000000000000
+       x11 = 0x000000000000001c
+       x12 = 0x0000000100106c14
+       x13 = 0x0000000000000000
+       x14 = 0x000000000000000d
+       x15 = 0x000000000000000f
+       x16 = 0x000000018835d824  libsystem_platform.dylib`os_unfair_lock_unlock
+       x17 = 0x00000001f7486520
+       x18 = 0x0000000000000000
+       x19 = 0x00000001f61b80b0  lsl::sAllocatorBuffer
+       x20 = 0x00000001f61b8018  lsl::sMemoryManagerBuffer
+       x21 = 0x000000016fdfe8a8
+       x22 = 0x0fffffff0009d5d6
+       x23 = 0x00000001f61b8018  lsl::sMemoryManagerBuffer
+       x24 = 0x00000001f61b8150  dyld`lsl::sPoolBytes + 96
+       x25 = 0x000000016fdfea10
+       x26 = 0x0000000000000000
+       x27 = 0x0000000000000000
+       x28 = 0x0000000000000000
+        fp = 0x000000016fdfd670
+        lr = 0x00000001000923b8  test`complex_person.Animal.write + 80 at complex_person.zig:59:20
+        sp = 0x000000016fdfd500
+        pc = 0x0000000100003c80  test`TCompactProtocolWriter.write + 56 at TCompactProtocolWriter.zig:103:13
+      cpsr = 0x60001000
+
+(lldb) s
+Process 91415 stopped
+* thread #1, queue = 'com.apple.main-thread', stop reason = step in
+    frame #0: 0x0000000100003e0c test`TCompactProtocolWriter.write(self=0x000000016fdfda68, api_call=TCompactProtocolWriter.ApiCall @ 0x0000000100109848) at TCompactProtocolWriter.zig:105:21
+   102  pub fn write(self: *Self, api_call: ApiCall) WriterError!void {
+   103      switch (api_call) {
+   104          .StructBegin => {
+-> 105              try self.last_fids.appendBounded(self.last_fid);
+   106              std.debug.print("check states is: {}\n", .{check_states});
+   107              std.debug.print("builtin is: {any}\n", .{@import("builtin")});
+   108              std.debug.print("builtin mode is: {any}\n", .{@import("builtin").mode});
+Target 0: (test) stopped.
+(lldb) register read
+General Purpose Registers:
+        x0 = 0x000000016fdfe6e0
+        x1 = 0x000000016fdfda68
+        x2 = 0x0000000100109848  test`__anon_15303 + 8
+        x3 = 0x0000000000000001
+        x4 = 0x000000016fdfd600
+        x5 = 0x0000000000000002
+        x6 = 0x000000000000000a
+        x7 = 0x0000000000000000
+        x8 = 0x000000016fdfda68
+        x9 = 0x0000000000000000
+       x10 = 0x0000000000000000
+       x11 = 0x000000000000001c
+       x12 = 0x0000000100106c14
+       x13 = 0x0000000000000000
+       x14 = 0x000000000000000d
+       x15 = 0x000000000000000f
+       x16 = 0x000000018835d824  libsystem_platform.dylib`os_unfair_lock_unlock
+       x17 = 0x00000001f7486520
+       x18 = 0x0000000000000000
+       x19 = 0x00000001f61b80b0  lsl::sAllocatorBuffer
+       x20 = 0x00000001f61b8018  lsl::sMemoryManagerBuffer
+       x21 = 0x000000016fdfe8a8
+       x22 = 0x0fffffff0009d5d6
+       x23 = 0x00000001f61b8018  lsl::sMemoryManagerBuffer
+       x24 = 0x00000001f61b8150  dyld`lsl::sPoolBytes + 96
+       x25 = 0x000000016fdfea10
+       x26 = 0x0000000000000000
+       x27 = 0x0000000000000000
+       x28 = 0x0000000000000000
+        fp = 0x000000016fdfd670
+        lr = 0x00000001000923b8  test`complex_person.Animal.write + 80 at complex_person.zig:59:20
+        sp = 0x000000016fdfd500
+        pc = 0x0000000100003e0c  test`TCompactProtocolWriter.write + 452 at TCompactProtocolWriter.zig:105:21
+      cpsr = 0x60001000
+
+(lldb) n
+Process 91415 stopped
+* thread #1, queue = 'com.apple.main-thread', stop reason = step over
+    frame #0: 0x000000010000406c test`TCompactProtocolWriter.write(self=0x000000016fdfda68, api_call=TCompactProtocolWriter.ApiCall @ 0x0000000100109848) at TCompactProtocolWriter.zig:106:28
+   103      switch (api_call) {
+   104          .StructBegin => {
+   105              try self.last_fids.appendBounded(self.last_fid);
+-> 106              std.debug.print("check states is: {}\n", .{check_states});
+   107              std.debug.print("builtin is: {any}\n", .{@import("builtin")});
+   108              std.debug.print("builtin mode is: {any}\n", .{@import("builtin").mode});
+   109              if (check_states) try self.struct_states.appendBounded(self.state);
+Target 0: (test) stopped.
+(lldb) n
+check states is: true
+Process 91415 stopped
+* thread #1, queue = 'com.apple.main-thread', stop reason = step over
+    frame #0: 0x0000000100004074 test`TCompactProtocolWriter.write(self=0x000000016fdfda68, api_call=TCompactProtocolWriter.ApiCall @ 0x0000000100109848) at TCompactProtocolWriter.zig:107:28
+   104          .StructBegin => {
+   105              try self.last_fids.appendBounded(self.last_fid);
+   106              std.debug.print("check states is: {}\n", .{check_states});
+-> 107              std.debug.print("builtin is: {any}\n", .{@import("builtin")});
+   108              std.debug.print("builtin mode is: {any}\n", .{@import("builtin").mode});
+   109              if (check_states) try self.struct_states.appendBounded(self.state);
+   110              //try self.structs.append(.{.state = self.state, .fid = self.last_fid});
+Target 0: (test) stopped.
+(lldb)
+builtin is: builtin
+Process 91415 stopped
+* thread #1, queue = 'com.apple.main-thread', stop reason = step over
+    frame #0: 0x000000010000407c test`TCompactProtocolWriter.write(self=0x000000016fdfda68, api_call=TCompactProtocolWriter.ApiCall @ 0x0000000100109848) at TCompactProtocolWriter.zig:108:28
+   105              try self.last_fids.appendBounded(self.last_fid);
+   106              std.debug.print("check states is: {}\n", .{check_states});
+   107              std.debug.print("builtin is: {any}\n", .{@import("builtin")});
+-> 108              std.debug.print("builtin mode is: {any}\n", .{@import("builtin").mode});
+   109              if (check_states) try self.struct_states.appendBounded(self.state);
+   110              //try self.structs.append(.{.state = self.state, .fid = self.last_fid});
+   111              try self.state.transition(
+Target 0: (test) stopped.
+(lldb)
+builtin mode is: .Debug
+Process 91415 stopped
+* thread #1, queue = 'com.apple.main-thread', stop reason = step over
+    frame #0: 0x0000000100004088 test`TCompactProtocolWriter.write(self=0x000000016fdfda68, api_call=TCompactProtocolWriter.ApiCall @ 0x0000000100109848) at TCompactProtocolWriter.zig:109:39
+   106              std.debug.print("check states is: {}\n", .{check_states});
+   107              std.debug.print("builtin is: {any}\n", .{@import("builtin")});
+   108              std.debug.print("builtin mode is: {any}\n", .{@import("builtin").mode});
+-> 109              if (check_states) try self.struct_states.appendBounded(self.state);
+   110              //try self.structs.append(.{.state = self.state, .fid = self.last_fid});
+   111              try self.state.transition(
+   112                  States.initMany(&[_]State{.CLEAR, .CONTAINER_WRITE, .VALUE_WRITE}),
+Target 0: (test) stopped.
+(lldb) register read
+General Purpose Registers:
+        x0 = 0x000000016fdfe6e0
+        x1 = 0x0000000000000103
+        x2 = 0x0000000000000103
+        x3 = 0x0000000000000001
+        x4 = 0x000000016fdfd280
+        x5 = 0x0000000000000002
+        x6 = 0x000000000000000a
+        x7 = 0x0000000000000000
+        x8 = 0x000000006fdfda68
+        x9 = 0x06c99658f4b300c4
+       x10 = 0x0000000000000000
+       x11 = 0x000000000000001c
+       x12 = 0x0000000100106c14
+       x13 = 0x0000000000000000
+       x14 = 0x000000000000000d
+       x15 = 0x000000000000000f
+       x16 = 0x000000018835d824  libsystem_platform.dylib`os_unfair_lock_unlock
+       x17 = 0x00000001f7486520
+       x18 = 0x0000000000000000
+       x19 = 0x00000001f61b80b0  lsl::sAllocatorBuffer
+       x20 = 0x00000001f61b8018  lsl::sMemoryManagerBuffer
+       x21 = 0x000000016fdfe8a8
+       x22 = 0x0fffffff0009d5d6
+       x23 = 0x00000001f61b8018  lsl::sMemoryManagerBuffer
+       x24 = 0x00000001f61b8150  dyld`lsl::sPoolBytes + 96
+       x25 = 0x000000016fdfea10
+       x26 = 0x0000000000000000
+       x27 = 0x0000000000000000
+       x28 = 0x0000000000000000
+        fp = 0x000000016fdfd670
+        lr = 0x0000000100004080  test`TCompactProtocolWriter.write + 1080 at TCompactProtocolWriter.zig:108:28
+        sp = 0x000000016fdfd500
+        pc = 0x0000000100004088  test`TCompactProtocolWriter.write + 1088 at TCompactProtocolWriter.zig:109:39
+      cpsr = 0x60001000
+
+(lldb) disassemble --frame --mixed
+** 102  pub fn write(self: *Self, api_call: ApiCall) WriterError!void {
+
+test`TCompactProtocolWriter.write:
+    0x100003c48 <+0>:    sub    sp, sp, #0x180
+    0x100003c4c <+4>:    stp    x28, x27, [sp, #0x160]
+    0x100003c50 <+8>:    stp    x29, x30, [sp, #0x170]
+    0x100003c54 <+12>:   add    x29, sp, #0x170
+    0x100003c58 <+16>:   stur   x0, [x29, #-0x90]
+    0x100003c5c <+20>:   stur   x1, [x29, #-0x88]
+    0x100003c60 <+24>:   stur   x2, [x29, #-0x80]
+    0x100003c64 <+28>:   adrp   x8, 317
+    0x100003c68 <+32>:   ldr    x8, [x8, #0x10]
+    0x100003c6c <+36>:   ldr    x8, [x8]
+    0x100003c70 <+40>:   stur   x8, [x29, #-0x18]
+
+   100  };
+   101
+** 102  pub fn write(self: *Self, api_call: ApiCall) WriterError!void {
+
+    0x100003c74 <+44>:   mov    x8, x1
+    0x100003c78 <+48>:   stur   x8, [x29, #-0x70]
+    0x100003c7c <+52>:   stur   x1, [x29, #-0x68]
+
+** 103      switch (api_call) {
+   104          .StructBegin => {
+
+    0x100003c80 <+56>:   ldrb   w8, [x2, #0x10]
+    0x100003c84 <+60>:   stur   w8, [x29, #-0x74]
+    0x100003c88 <+64>:   and    w8, w8, #0xf
+    0x100003c8c <+68>:   mov    w9, #0x8 ; =8
+    0x100003c90 <+72>:   and    w9, w9, #0xf
+    0x100003c94 <+76>:   subs   w8, w8, w9
+    0x100003c98 <+80>:   b.eq   0x100003f7c    ; <+820> at TCompactProtocolWriter.zig
+    0x100003c9c <+84>:   b      0x100003ca0    ; <+88> at TCompactProtocolWriter.zig
+    0x100003ca0 <+88>:   ldur   w8, [x29, #-0x74]
+    0x100003ca4 <+92>:   and    w8, w8, #0xf
+    0x100003ca8 <+96>:   mov    w9, #0x9 ; =9
+    0x100003cac <+100>:  and    w9, w9, #0xf
+    0x100003cb0 <+104>:  subs   w8, w8, w9
+    0x100003cb4 <+108>:  b.eq   0x100003fb8    ; <+880> at TCompactProtocolWriter.zig
+    0x100003cb8 <+112>:  b      0x100003cbc    ; <+116> at TCompactProtocolWriter.zig
+    0x100003cbc <+116>:  ldur   w8, [x29, #-0x74]
+    0x100003cc0 <+120>:  and    w8, w8, #0xf
+    0x100003cc4 <+124>:  mov    w9, #0xa ; =10
+    0x100003cc8 <+128>:  and    w9, w9, #0xf
+    0x100003ccc <+132>:  subs   w8, w8, w9
+    0x100003cd0 <+136>:  b.eq   0x100003ff4    ; <+940> at TCompactProtocolWriter.zig
+    0x100003cd4 <+140>:  b      0x100003cd8    ; <+144> at TCompactProtocolWriter.zig
+    0x100003cd8 <+144>:  ldur   w8, [x29, #-0x74]
+    0x100003cdc <+148>:  and    w8, w8, #0xf
+    0x100003ce0 <+152>:  mov    w9, #0xb ; =11
+    0x100003ce4 <+156>:  and    w9, w9, #0xf
+    0x100003ce8 <+160>:  subs   w8, w8, w9
+    0x100003cec <+164>:  b.eq   0x100003e50    ; <+520> at TCompactProtocolWriter.zig
+    0x100003cf0 <+168>:  b      0x100003cf4    ; <+172> at TCompactProtocolWriter.zig
+    0x100003cf4 <+172>:  ldur   w8, [x29, #-0x74]
+    0x100003cf8 <+176>:  and    w8, w8, #0xf
+    0x100003cfc <+180>:  mov    w9, #0x0 ; =0
+    0x100003d00 <+184>:  and    w9, w9, #0xf
+    0x100003d04 <+188>:  subs   w8, w8, w9
+    0x100003d08 <+192>:  b.eq   0x100003e04    ; <+444> at TCompactProtocolWriter.zig
+    0x100003d0c <+196>:  b      0x100003d10    ; <+200> at TCompactProtocolWriter.zig
+    0x100003d10 <+200>:  ldur   w8, [x29, #-0x74]
+    0x100003d14 <+204>:  and    w8, w8, #0xf
+    0x100003d18 <+208>:  mov    w9, #0x1 ; =1
+    0x100003d1c <+212>:  and    w9, w9, #0xf
+    0x100003d20 <+216>:  subs   w8, w8, w9
+    0x100003d24 <+220>:  b.eq   0x100003e2c    ; <+484> at TCompactProtocolWriter.zig
+    0x100003d28 <+224>:  b      0x100003d2c    ; <+228> at TCompactProtocolWriter.zig
+    0x100003d2c <+228>:  ldur   w8, [x29, #-0x74]
+    0x100003d30 <+232>:  and    w8, w8, #0xf
+    0x100003d34 <+236>:  mov    w9, #0x2 ; =2
+    0x100003d38 <+240>:  and    w9, w9, #0xf
+    0x100003d3c <+244>:  subs   w8, w8, w9
+    0x100003d40 <+248>:  b.eq   0x100003e74    ; <+556> at TCompactProtocolWriter.zig
+    0x100003d44 <+252>:  b      0x100003d48    ; <+256> at TCompactProtocolWriter.zig
+    0x100003d48 <+256>:  ldur   w8, [x29, #-0x74]
+    0x100003d4c <+260>:  and    w8, w8, #0xf
+    0x100003d50 <+264>:  mov    w9, #0x3 ; =3
+    0x100003d54 <+268>:  and    w9, w9, #0xf
+    0x100003d58 <+272>:  subs   w8, w8, w9
+    0x100003d5c <+276>:  b.eq   0x100003e9c    ; <+596> at TCompactProtocolWriter.zig
+    0x100003d60 <+280>:  b      0x100003d64    ; <+284> at TCompactProtocolWriter.zig
+    0x100003d64 <+284>:  ldur   w8, [x29, #-0x74]
+    0x100003d68 <+288>:  and    w8, w8, #0xf
+    0x100003d6c <+292>:  mov    w9, #0x4 ; =4
+    0x100003d70 <+296>:  and    w9, w9, #0xf
+    0x100003d74 <+300>:  subs   w8, w8, w9
+    0x100003d78 <+304>:  b.eq   0x100003ec0    ; <+632> at TCompactProtocolWriter.zig
+    0x100003d7c <+308>:  b      0x100003d80    ; <+312> at TCompactProtocolWriter.zig
+    0x100003d80 <+312>:  ldur   w8, [x29, #-0x74]
+    0x100003d84 <+316>:  and    w8, w8, #0xf
+    0x100003d88 <+320>:  mov    w9, #0x5 ; =5
+    0x100003d8c <+324>:  and    w9, w9, #0xf
+    0x100003d90 <+328>:  subs   w8, w8, w9
+    0x100003d94 <+332>:  b.eq   0x100003ee4    ; <+668> at TCompactProtocolWriter.zig
+    0x100003d98 <+336>:  b      0x100003d9c    ; <+340> at TCompactProtocolWriter.zig
+    0x100003d9c <+340>:  ldur   w8, [x29, #-0x74]
+    0x100003da0 <+344>:  and    w8, w8, #0xf
+    0x100003da4 <+348>:  mov    w9, #0x6 ; =6
+    0x100003da8 <+352>:  and    w9, w9, #0xf
+    0x100003dac <+356>:  subs   w8, w8, w9
+    0x100003db0 <+360>:  b.eq   0x100003f1c    ; <+724> at TCompactProtocolWriter.zig
+    0x100003db4 <+364>:  b      0x100003db8    ; <+368> at TCompactProtocolWriter.zig
+    0x100003db8 <+368>:  ldur   w8, [x29, #-0x74]
+    0x100003dbc <+372>:  and    w8, w8, #0xf
+    0x100003dc0 <+376>:  mov    w9, #0x7 ; =7
+    0x100003dc4 <+380>:  and    w9, w9, #0xf
+    0x100003dc8 <+384>:  subs   w8, w8, w9
+    0x100003dcc <+388>:  b.eq   0x100003f40    ; <+760> at TCompactProtocolWriter.zig
+    0x100003dd0 <+392>:  b      0x100004028    ; <+992> at TCompactProtocolWriter.zig
+    0x100003dd4 <+396>:  ldur   x9, [x29, #-0x18]
+    0x100003dd8 <+400>:  adrp   x8, 317
+    0x100003ddc <+404>:  ldr    x8, [x8, #0x10]
+    0x100003de0 <+408>:  ldr    x8, [x8]
+    0x100003de4 <+412>:  subs   x8, x8, x9
+    0x100003de8 <+416>:  b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x100003dec <+420>:  b      0x100003df0    ; <+424> at TCompactProtocolWriter.zig
+    0x100003df0 <+424>:  mov    w0, #0x0 ; =0
+    0x100003df4 <+428>:  ldp    x29, x30, [sp, #0x170]
+    0x100003df8 <+432>:  ldp    x28, x27, [sp, #0x160]
+    0x100003dfc <+436>:  add    sp, sp, #0x180
+    0x100003e00 <+440>:  ret
+    0x100003e04 <+444>:  ldur   x0, [x29, #-0x90]
+    0x100003e08 <+448>:  ldur   x8, [x29, #-0x88]
+
+** 105              try self.last_fids.appendBounded(self.last_fid);
+
+    0x100003e0c <+452>:  ldur   x9, [x29, #-0x68]
+    0x100003e10 <+456>:  add    x1, x9, #0x20
+    0x100003e14 <+460>:  ldrh   w2, [x8, #0x68]
+    0x100003e18 <+464>:  bl     0x100004a48    ; array_list.ArrayListAlignedUnmanaged(i16,null).appendBounded at array_list.zig:930
+    0x100003e1c <+468>:  stur   w0, [x29, #-0x94]
+    0x100003e20 <+472>:  and    w8, w0, #0xffff
+    0x100003e24 <+476>:  cbnz   w8, 0x100004030 ; <+1000> at TCompactProtocolWriter.zig
+    0x100003e28 <+480>:  b      0x100004068    ; <+1056> at TCompactProtocolWriter.zig
+    0x100003e2c <+484>:  ldur   x0, [x29, #-0x90]
+
+   115          },
+   116          .StructEnd => {
+** 117              try self.state.transition(
+   118                  States.initMany(&[_]State{.FIELD_WRITE}),
+   119                  .DUMMY_STATE);
+
+    0x100003e30 <+488>:  ldur   x8, [x29, #-0x68]
+    0x100003e34 <+492>:  add    x1, x8, #0xec
+    0x100003e38 <+496>:  mov    w2, #0x5 ; =5
+    0x100003e3c <+500>:  bl     0x100007c4c    ; TCompactProtocolWriter.State.transition__anon_2111 at TCompactProtocolWriter.zig:17
+    0x100003e40 <+504>:  stur   w0, [x29, #-0x98]
+    0x100003e44 <+508>:  and    w8, w0, #0xffff
+    0x100003e48 <+512>:  cbnz   w8, 0x100004148 ; <+1280> at TCompactProtocolWriter.zig
+    0x100003e4c <+516>:  b      0x100004180    ; <+1336> at TCompactProtocolWriter.zig
+    0x100003e50 <+520>:  ldur   x0, [x29, #-0x90]
+
+   124          },
+   125          .ListEnd => {
+** 126              try self.state.transition(
+   127                  States.initOne(.CONTAINER_WRITE), .DUMMY_STATE
+   128              );
+
+    0x100003e54 <+524>:  ldur   x8, [x29, #-0x68]
+    0x100003e58 <+528>:  add    x1, x8, #0xec
+    0x100003e5c <+532>:  mov    w2, #0x5 ; =5
+    0x100003e60 <+536>:  bl     0x100007e44    ; TCompactProtocolWriter.State.transition__anon_2135 at TCompactProtocolWriter.zig:17
+    0x100003e64 <+540>:  stur   w0, [x29, #-0x9c]
+    0x100003e68 <+544>:  and    w8, w0, #0xffff
+    0x100003e6c <+548>:  cbnz   w8, 0x100004208 ; <+1472> at TCompactProtocolWriter.zig
+    0x100003e70 <+552>:  b      0x100004240    ; <+1528> at TCompactProtocolWriter.zig
+    0x100003e74 <+556>:  ldur   x8, [x29, #-0x80]
+
+** 129              if (check_states) self.state = self.container_states.pop().?;
+   130
+   131          },
+
+    0x100003e78 <+560>:  ldr    w8, [x8]
+    0x100003e7c <+564>:  stur   w8, [x29, #-0x28]
+
+   133              // TODO: this is for non-bool. Handle BOOL finally?
+   134              // These are the Reader type structs, not the writer.
+** 135              if (field.tp == .FALSE or field.tp == .TRUE) {
+
+    0x100003e80 <+568>:  ldurb  w8, [x29, #-0x26]
+    0x100003e84 <+572>:  and    w8, w8, #0xf
+    0x100003e88 <+576>:  mov    w9, #0x2 ; =2
+    0x100003e8c <+580>:  and    w9, w9, #0xf
+    0x100003e90 <+584>:  subs   w8, w8, w9
+    0x100003e94 <+588>:  b.eq   0x1000042b8    ; <+1648> at TCompactProtocolWriter.zig
+    0x100003e98 <+592>:  b      0x1000042c4    ; <+1660> at TCompactProtocolWriter.zig:135:44
+    0x100003e9c <+596>:  ldur   x0, [x29, #-0x90]
+
+   151          },
+   152          .FieldEnd => {
+** 153              try self.state.transition(
+   154                  States.initMany(&[_]State{.VALUE_WRITE, .BOOL_WRITE}),
+   155                  .FIELD_WRITE
+
+    0x100003ea0 <+600>:  ldur   x8, [x29, #-0x68]
+    0x100003ea4 <+604>:  add    x1, x8, #0xec
+    0x100003ea8 <+608>:  mov    w2, #0x1 ; =1
+    0x100003eac <+612>:  bl     0x100007f18    ; TCompactProtocolWriter.State.transition__anon_2190 at TCompactProtocolWriter.zig:17
+    0x100003eb0 <+616>:  stur   w0, [x29, #-0xa0]
+    0x100003eb4 <+620>:  and    w8, w0, #0xffff
+    0x100003eb8 <+624>:  cbnz   w8, 0x10000454c ; <+2308> at TCompactProtocolWriter.zig
+    0x100003ebc <+628>:  b      0x100004584    ; <+2364> at TCompactProtocolWriter.zig:153:13
+    0x100003ec0 <+632>:  ldur   x0, [x29, #-0x90]
+
+   157          },
+   158          .FieldStop => {
+** 159              try self.state.transition(
+   160                  States.initOne(.FIELD_WRITE), .FIELD_WRITE
+   161              );
+
+    0x100003ec4 <+636>:  ldur   x8, [x29, #-0x68]
+    0x100003ec8 <+640>:  add    x1, x8, #0xec
+    0x100003ecc <+644>:  mov    w2, #0x1 ; =1
+    0x100003ed0 <+648>:  bl     0x100007c4c    ; TCompactProtocolWriter.State.transition__anon_2111 at TCompactProtocolWriter.zig:17
+    0x100003ed4 <+652>:  stur   w0, [x29, #-0xa4]
+    0x100003ed8 <+656>:  and    w8, w0, #0xffff
+    0x100003edc <+660>:  cbnz   w8, 0x100004588 ; <+2368> at TCompactProtocolWriter.zig
+    0x100003ee0 <+664>:  b      0x1000045c0    ; <+2424> at TCompactProtocolWriter.zig
+    0x100003ee4 <+668>:  ldur   x0, [x29, #-0x90]
+    0x100003ee8 <+672>:  ldur   x9, [x29, #-0x80]
+
+** 162              try self.writer.writeByte(0);
+   163              },
+   164          .Binary => |s| {
+
+    0x100003eec <+676>:  ldr    x8, [x9]
+    0x100003ef0 <+680>:  str    x8, [sp, #0xb8]
+    0x100003ef4 <+684>:  ldr    x2, [x9, #0x8]
+    0x100003ef8 <+688>:  stur   x2, [x29, #-0xb0]
+    0x100003efc <+692>:  stur   x8, [x29, #-0x58]
+    0x100003f00 <+696>:  stur   x2, [x29, #-0x50]
+
+** 165              try self.writeVarint(u64, s.len);
+
+    0x100003f04 <+700>:  ldur   x1, [x29, #-0x68]
+    0x100003f08 <+704>:  bl     0x100007614    ; TCompactProtocolWriter.writeVarint__anon_2191 at TCompactProtocolWriter.zig:67
+    0x100003f0c <+708>:  stur   w0, [x29, #-0xa8]
+    0x100003f10 <+712>:  and    w8, w0, #0xffff
+    0x100003f14 <+716>:  cbnz   w8, 0x10000461c ; <+2516> at TCompactProtocolWriter.zig
+    0x100003f18 <+720>:  b      0x100004654    ; <+2572> at TCompactProtocolWriter.zig
+    0x100003f1c <+724>:  ldur   x8, [x29, #-0x80]
+
+** 166              try self.writer.writeAll(s);
+   167          },
+   168          .Bool => |b| {
+
+    0x100003f20 <+728>:  ldrb   w8, [x8]
+    0x100003f24 <+732>:  and    w9, w8, #0x1
+    0x100003f28 <+736>:  and    w9, w9, #0x1
+    0x100003f2c <+740>:  sturb  w9, [x29, #-0x47]
+
+** 169              try self.writer.writeByte(if (b) 1 else 0);
+   170          },
+   171          .I16 => |i| {
+
+    0x100003f30 <+744>:  ldur   x9, [x29, #-0x68]
+    0x100003f34 <+748>:  str    x9, [sp, #0xb0]
+    0x100003f38 <+752>:  tbnz   w8, #0x0, 0x1000046d4 ; <+2700> at TCompactProtocolWriter.zig
+    0x100003f3c <+756>:  b      0x1000046e0    ; <+2712> at TCompactProtocolWriter.zig
+    0x100003f40 <+760>:  ldur   x0, [x29, #-0x90]
+    0x100003f44 <+764>:  ldur   x8, [x29, #-0x80]
+    0x100003f48 <+768>:  ldrh   w1, [x8]
+    0x100003f4c <+772>:  sturh  w1, [x29, #-0x46]
+
+** 172              try self.writeVarint(u16, encodeZigZag(i16, i));
+   173          },
+   174          .I32 => |i| {
+
+    0x100003f50 <+776>:  ldur   x8, [x29, #-0x68]
+    0x100003f54 <+780>:  str    x8, [sp, #0xa0]
+    0x100003f58 <+784>:  bl     0x100007ec0    ; TCompactProtocolWriter.encodeZigZag__anon_2162 at TCompactProtocolWriter.zig:330
+    0x100003f5c <+788>:  ldr    x1, [sp, #0xa0]
+    0x100003f60 <+792>:  mov    x2, x0
+    0x100003f64 <+796>:  ldur   x0, [x29, #-0x90]
+    0x100003f68 <+800>:  bl     0x1000072b8    ; TCompactProtocolWriter.writeVarint__anon_2163 at TCompactProtocolWriter.zig:67
+    0x100003f6c <+804>:  str    w0, [sp, #0xac]
+    0x100003f70 <+808>:  and    w8, w0, #0xffff
+    0x100003f74 <+812>:  cbnz   w8, 0x100004728 ; <+2784> at TCompactProtocolWriter.zig
+    0x100003f78 <+816>:  b      0x100004760    ; <+2840> at TCompactProtocolWriter.zig:172:13
+    0x100003f7c <+820>:  ldur   x0, [x29, #-0x90]
+    0x100003f80 <+824>:  ldur   x8, [x29, #-0x80]
+    0x100003f84 <+828>:  ldr    w1, [x8]
+    0x100003f88 <+832>:  stur   w1, [x29, #-0x44]
+
+** 175              try self.writeVarint(u32, encodeZigZag(i32, i));
+   176          },
+   177          .I64 => |i| {
+
+    0x100003f8c <+836>:  ldur   x8, [x29, #-0x68]
+    0x100003f90 <+840>:  str    x8, [sp, #0x90]
+    0x100003f94 <+844>:  bl     0x10000817c    ; TCompactProtocolWriter.encodeZigZag__anon_2208 at TCompactProtocolWriter.zig:330
+    0x100003f98 <+848>:  ldr    x1, [sp, #0x90]
+    0x100003f9c <+852>:  mov    x2, x0
+    0x100003fa0 <+856>:  ldur   x0, [x29, #-0x90]
+    0x100003fa4 <+860>:  bl     0x10000774c    ; TCompactProtocolWriter.writeVarint__anon_2209 at TCompactProtocolWriter.zig:67
+    0x100003fa8 <+864>:  str    w0, [sp, #0x9c]
+    0x100003fac <+868>:  and    w8, w0, #0xffff
+    0x100003fb0 <+872>:  cbnz   w8, 0x100004764 ; <+2844> at TCompactProtocolWriter.zig
+    0x100003fb4 <+876>:  b      0x10000479c    ; <+2900> at TCompactProtocolWriter.zig:175:13
+    0x100003fb8 <+880>:  ldur   x0, [x29, #-0x90]
+    0x100003fbc <+884>:  ldur   x8, [x29, #-0x80]
+    0x100003fc0 <+888>:  ldr    x1, [x8]
+    0x100003fc4 <+892>:  stur   x1, [x29, #-0x40]
+
+** 178              try self.writeVarint(u64, encodeZigZag(i64, i));
+   179          },
+   180          .ListBegin => |meta| {
+
+    0x100003fc8 <+896>:  ldur   x8, [x29, #-0x68]
+    0x100003fcc <+900>:  str    x8, [sp, #0x80]
+    0x100003fd0 <+904>:  bl     0x1000081d0    ; TCompactProtocolWriter.encodeZigZag__anon_2221 at TCompactProtocolWriter.zig:330
+    0x100003fd4 <+908>:  ldr    x1, [sp, #0x80]
+    0x100003fd8 <+912>:  mov    x2, x0
+    0x100003fdc <+916>:  ldur   x0, [x29, #-0x90]
+    0x100003fe0 <+920>:  bl     0x100007614    ; TCompactProtocolWriter.writeVarint__anon_2191 at TCompactProtocolWriter.zig:67
+    0x100003fe4 <+924>:  str    w0, [sp, #0x8c]
+    0x100003fe8 <+928>:  and    w8, w0, #0xffff
+    0x100003fec <+932>:  cbnz   w8, 0x1000047a0 ; <+2904> at TCompactProtocolWriter.zig
+    0x100003ff0 <+936>:  b      0x1000047d8    ; <+2960> at TCompactProtocolWriter.zig:178:13
+    0x100003ff4 <+940>:  ldur   x0, [x29, #-0x90]
+    0x100003ff8 <+944>:  ldur   x8, [x29, #-0x88]
+    0x100003ffc <+948>:  ldur   x9, [x29, #-0x80]
+    0x100004000 <+952>:  ldr    x9, [x9]
+    0x100004004 <+956>:  stur   x9, [x29, #-0x20]
+
+** 181              if (check_states) try self.container_states.appendBounded(self.state);
+
+    0x100004008 <+960>:  ldur   x9, [x29, #-0x68]
+    0x10000400c <+964>:  add    x1, x9, #0x50
+    0x100004010 <+968>:  ldrb   w2, [x8, #0xec]
+    0x100004014 <+972>:  bl     0x100007b3c    ; array_list.ArrayListAlignedUnmanaged(TCompactProtocolWriter.State,null).appendBounded at array_list.zig:930
+    0x100004018 <+976>:  str    w0, [sp, #0x7c]
+    0x10000401c <+980>:  and    w8, w0, #0xffff
+    0x100004020 <+984>:  cbnz   w8, 0x1000047dc ; <+2964> at TCompactProtocolWriter.zig
+    0x100004024 <+988>:  b      0x100004814    ; <+3020> at TCompactProtocolWriter.zig
+    0x100004028 <+992>:  ldur   x0, [x29, #-0x90]
+
+** 103      switch (api_call) {
+
+    0x10000402c <+996>:  bl     0x100002a18    ; debug.FullPanic((function 'defaultPanic')).corruptSwitch at debug.zig:110
+    0x100004030 <+1000>: ldur   x0, [x29, #-0x90]
+
+** 105              try self.last_fids.appendBounded(self.last_fid);
+
+    0x100004034 <+1004>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x100004038 <+1008>: ldur   x9, [x29, #-0x18]
+    0x10000403c <+1012>: adrp   x8, 316
+    0x100004040 <+1016>: ldr    x8, [x8, #0x10]
+    0x100004044 <+1020>: ldr    x8, [x8]
+    0x100004048 <+1024>: subs   x8, x8, x9
+    0x10000404c <+1028>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x100004050 <+1032>: b      0x100004054    ; <+1036> at TCompactProtocolWriter.zig
+    0x100004054 <+1036>: ldur   w0, [x29, #-0x94]
+    0x100004058 <+1040>: ldp    x29, x30, [sp, #0x170]
+    0x10000405c <+1044>: ldp    x28, x27, [sp, #0x160]
+    0x100004060 <+1048>: add    sp, sp, #0x180
+    0x100004064 <+1052>: ret
+    0x100004068 <+1056>: ldur   x0, [x29, #-0x90]
+
+** 106              std.debug.print("check states is: {}\n", .{check_states});
+
+    0x10000406c <+1060>: bl     0x10000786c    ; debug.print__anon_1966 at debug.zig:227
+    0x100004070 <+1064>: ldur   x0, [x29, #-0x90]
+
+** 107              std.debug.print("builtin is: {any}\n", .{@import("builtin")});
+
+    0x100004074 <+1068>: bl     0x10000795c    ; debug.print__anon_1974 at debug.zig:227
+    0x100004078 <+1072>: ldur   x0, [x29, #-0x90]
+
+** 108              std.debug.print("builtin mode is: {any}\n", .{@import("builtin").mode});
+
+    0x10000407c <+1076>: bl     0x100007a4c    ; debug.print__anon_1982 at debug.zig:227
+    0x100004080 <+1080>: ldur   x8, [x29, #-0x88]
+    0x100004084 <+1084>: ldur   x0, [x29, #-0x90]
+
+-> 109              if (check_states) try self.struct_states.appendBounded(self.state);
+-> 110              //try self.structs.append(.{.state = self.state, .fid = self.last_fid});
+
+->  0x100004088 <+1088>: ldur   x9, [x29, #-0x68]
+    0x10000408c <+1092>: add    x1, x9, #0x38
+    0x100004090 <+1096>: ldrb   w2, [x8, #0xec]
+    0x100004094 <+1100>: bl     0x100007b3c    ; array_list.ArrayListAlignedUnmanaged(TCompactProtocolWriter.State,null).appendBounded at array_list.zig:930
+    0x100004098 <+1104>: str    w0, [sp, #0x78]
+    0x10000409c <+1108>: and    w8, w0, #0xffff
+    0x1000040a0 <+1112>: cbz    w8, 0x1000040e0 ; <+1176> at TCompactProtocolWriter.zig
+    0x1000040a4 <+1116>: b      0x1000040a8    ; <+1120> at TCompactProtocolWriter.zig
+    0x1000040a8 <+1120>: ldur   x0, [x29, #-0x90]
+    0x1000040ac <+1124>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x1000040b0 <+1128>: ldur   x9, [x29, #-0x18]
+    0x1000040b4 <+1132>: adrp   x8, 316
+    0x1000040b8 <+1136>: ldr    x8, [x8, #0x10]
+    0x1000040bc <+1140>: ldr    x8, [x8]
+    0x1000040c0 <+1144>: subs   x8, x8, x9
+    0x1000040c4 <+1148>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x1000040c8 <+1152>: b      0x1000040cc    ; <+1156> at TCompactProtocolWriter.zig
+    0x1000040cc <+1156>: ldr    w0, [sp, #0x78]
+    0x1000040d0 <+1160>: ldp    x29, x30, [sp, #0x170]
+    0x1000040d4 <+1164>: ldp    x28, x27, [sp, #0x160]
+    0x1000040d8 <+1168>: add    sp, sp, #0x180
+    0x1000040dc <+1172>: ret
+    0x1000040e0 <+1176>: ldur   x0, [x29, #-0x90]
+
+** 111              try self.state.transition(
+   112                  States.initMany(&[_]State{.CLEAR, .CONTAINER_WRITE, .VALUE_WRITE}),
+   113                  .FIELD_WRITE);
+
+    0x1000040e4 <+1180>: ldur   x8, [x29, #-0x68]
+    0x1000040e8 <+1184>: add    x1, x8, #0xec
+    0x1000040ec <+1188>: mov    w2, #0x1 ; =1
+    0x1000040f0 <+1192>: bl     0x100007bd0    ; TCompactProtocolWriter.State.transition__anon_2093 at TCompactProtocolWriter.zig:17
+    0x1000040f4 <+1196>: str    w0, [sp, #0x74]
+    0x1000040f8 <+1200>: and    w8, w0, #0xffff
+    0x1000040fc <+1204>: cbz    w8, 0x10000413c ; <+1268> at TCompactProtocolWriter.zig:114:17
+    0x100004100 <+1208>: b      0x100004104    ; <+1212> at TCompactProtocolWriter.zig
+    0x100004104 <+1212>: ldur   x0, [x29, #-0x90]
+    0x100004108 <+1216>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x10000410c <+1220>: ldur   x9, [x29, #-0x18]
+    0x100004110 <+1224>: adrp   x8, 316
+    0x100004114 <+1228>: ldr    x8, [x8, #0x10]
+    0x100004118 <+1232>: ldr    x8, [x8]
+    0x10000411c <+1236>: subs   x8, x8, x9
+    0x100004120 <+1240>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x100004124 <+1244>: b      0x100004128    ; <+1248> at TCompactProtocolWriter.zig
+    0x100004128 <+1248>: ldr    w0, [sp, #0x74]
+    0x10000412c <+1252>: ldp    x29, x30, [sp, #0x170]
+    0x100004130 <+1256>: ldp    x28, x27, [sp, #0x160]
+    0x100004134 <+1260>: add    sp, sp, #0x180
+    0x100004138 <+1264>: ret
+
+** 114              self.last_fid = 0;
+
+    0x10000413c <+1268>: ldur   x8, [x29, #-0x68]
+    0x100004140 <+1272>: strh   wzr, [x8, #0x68]
+    0x100004144 <+1276>: b      0x100003dd4    ; <+396> at TCompactProtocolWriter.zig:103:13
+    0x100004148 <+1280>: ldur   x0, [x29, #-0x90]
+
+** 117              try self.state.transition(
+
+    0x10000414c <+1284>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x100004150 <+1288>: ldur   x9, [x29, #-0x18]
+    0x100004154 <+1292>: adrp   x8, 316
+    0x100004158 <+1296>: ldr    x8, [x8, #0x10]
+    0x10000415c <+1300>: ldr    x8, [x8]
+    0x100004160 <+1304>: subs   x8, x8, x9
+    0x100004164 <+1308>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x100004168 <+1312>: b      0x10000416c    ; <+1316> at TCompactProtocolWriter.zig
+    0x10000416c <+1316>: ldur   w0, [x29, #-0x98]
+    0x100004170 <+1320>: ldp    x29, x30, [sp, #0x170]
+    0x100004174 <+1324>: ldp    x28, x27, [sp, #0x160]
+    0x100004178 <+1328>: add    sp, sp, #0x180
+    0x10000417c <+1332>: ret
+    0x100004180 <+1336>: ldur   x0, [x29, #-0x90]
+
+   120              if (check_states) {
+** 121                  self.state = self.struct_states.pop().?;
+   122              }
+
+    0x100004184 <+1340>: ldur   x8, [x29, #-0x68]
+    0x100004188 <+1344>: str    x8, [sp, #0x68]
+    0x10000418c <+1348>: ldur   x8, [x29, #-0x68]
+    0x100004190 <+1352>: add    x1, x8, #0x38
+    0x100004194 <+1356>: sub    x8, x29, #0x30
+    0x100004198 <+1360>: bl     0x100007cc8    ; array_list.ArrayListAlignedUnmanaged(TCompactProtocolWriter.State,null).pop at array_list.zig:1360
+    0x10000419c <+1364>: ldurb  w8, [x29, #-0x2f]
+    0x1000041a0 <+1368>: cbnz   w8, 0x1000041e0 ; <+1432> at TCompactProtocolWriter.zig:121:54
+    0x1000041a4 <+1372>: b      0x1000041e4    ; <+1436> at TCompactProtocolWriter.zig
+    0x1000041a8 <+1376>: ldur   x0, [x29, #-0x90]
+    0x1000041ac <+1380>: ldr    x9, [sp, #0x68]
+    0x1000041b0 <+1384>: ldurb  w8, [x29, #-0x30]
+    0x1000041b4 <+1388>: and    w8, w8, #0x7
+    0x1000041b8 <+1392>: strb   w8, [x9, #0xec]
+
+** 123              self.last_fid = self.last_fids.pop().?;
+
+    0x1000041bc <+1396>: ldur   x8, [x29, #-0x68]
+    0x1000041c0 <+1400>: str    x8, [sp, #0x60]
+    0x1000041c4 <+1404>: ldur   x8, [x29, #-0x68]
+    0x1000041c8 <+1408>: add    x1, x8, #0x20
+    0x1000041cc <+1412>: sub    x8, x29, #0x2c
+    0x1000041d0 <+1416>: bl     0x100005c2c    ; array_list.ArrayListAlignedUnmanaged(i16,null).pop at array_list.zig:1360
+    0x1000041d4 <+1420>: ldurb  w8, [x29, #-0x2a]
+    0x1000041d8 <+1424>: cbnz   w8, 0x1000041fc ; <+1460> at TCompactProtocolWriter.zig:123:49
+    0x1000041dc <+1428>: b      0x100004200    ; <+1464> at TCompactProtocolWriter.zig
+
+** 121                  self.state = self.struct_states.pop().?;
+
+    0x1000041e0 <+1432>: b      0x1000041a8    ; <+1376> at TCompactProtocolWriter.zig
+    0x1000041e4 <+1436>: ldur   x0, [x29, #-0x90]
+    0x1000041e8 <+1440>: bl     0x100005bf8    ; debug.FullPanic((function 'defaultPanic')).unwrapNull at debug.zig:66
+    0x1000041ec <+1444>: ldr    x9, [sp, #0x60]
+
+** 123              self.last_fid = self.last_fids.pop().?;
+
+    0x1000041f0 <+1448>: ldurh  w8, [x29, #-0x2c]
+    0x1000041f4 <+1452>: strh   w8, [x9, #0x68]
+    0x1000041f8 <+1456>: b      0x100003dd4    ; <+396> at TCompactProtocolWriter.zig:103:13
+    0x1000041fc <+1460>: b      0x1000041ec    ; <+1444> at TCompactProtocolWriter.zig
+    0x100004200 <+1464>: ldur   x0, [x29, #-0x90]
+    0x100004204 <+1468>: bl     0x100005bf8    ; debug.FullPanic((function 'defaultPanic')).unwrapNull at debug.zig:66
+    0x100004208 <+1472>: ldur   x0, [x29, #-0x90]
+
+** 126              try self.state.transition(
+
+    0x10000420c <+1476>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x100004210 <+1480>: ldur   x9, [x29, #-0x18]
+    0x100004214 <+1484>: adrp   x8, 316
+    0x100004218 <+1488>: ldr    x8, [x8, #0x10]
+    0x10000421c <+1492>: ldr    x8, [x8]
+    0x100004220 <+1496>: subs   x8, x8, x9
+    0x100004224 <+1500>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x100004228 <+1504>: b      0x10000422c    ; <+1508> at TCompactProtocolWriter.zig
+    0x10000422c <+1508>: ldur   w0, [x29, #-0x9c]
+    0x100004230 <+1512>: ldp    x29, x30, [sp, #0x170]
+    0x100004234 <+1516>: ldp    x28, x27, [sp, #0x160]
+    0x100004238 <+1520>: add    sp, sp, #0x180
+    0x10000423c <+1524>: ret
+    0x100004240 <+1528>: ldur   x0, [x29, #-0x90]
+
+** 129              if (check_states) self.state = self.container_states.pop().?;
+
+    0x100004244 <+1532>: ldur   x8, [x29, #-0x68]
+    0x100004248 <+1536>: str    x8, [sp, #0x58]
+    0x10000424c <+1540>: ldur   x8, [x29, #-0x68]
+    0x100004250 <+1544>: add    x1, x8, #0x50
+    0x100004254 <+1548>: sub    x8, x29, #0x2e
+    0x100004258 <+1552>: bl     0x100007cc8    ; array_list.ArrayListAlignedUnmanaged(TCompactProtocolWriter.State,null).pop at array_list.zig:1360
+    0x10000425c <+1556>: ldurb  w8, [x29, #-0x2d]
+    0x100004260 <+1560>: cbnz   w8, 0x10000427c ; <+1588> at TCompactProtocolWriter.zig:129:71
+    0x100004264 <+1564>: b      0x100004280    ; <+1592> at TCompactProtocolWriter.zig
+    0x100004268 <+1568>: ldr    x9, [sp, #0x58]
+    0x10000426c <+1572>: ldurb  w8, [x29, #-0x2e]
+    0x100004270 <+1576>: and    w8, w8, #0x7
+    0x100004274 <+1580>: strb   w8, [x9, #0xec]
+    0x100004278 <+1584>: b      0x100003dd4    ; <+396> at TCompactProtocolWriter.zig:103:13
+    0x10000427c <+1588>: b      0x100004268    ; <+1568> at TCompactProtocolWriter.zig
+    0x100004280 <+1592>: ldur   x0, [x29, #-0x90]
+    0x100004284 <+1596>: bl     0x100005bf8    ; debug.FullPanic((function 'defaultPanic')).unwrapNull at debug.zig:66
+    0x100004288 <+1600>: ldur   x0, [x29, #-0x90]
+
+   137              }
+** 138              try self.state.transition(
+   139                  States.initOne(.FIELD_WRITE), .VALUE_WRITE
+   140              );
+
+    0x10000428c <+1604>: ldur   x8, [x29, #-0x68]
+    0x100004290 <+1608>: add    x1, x8, #0xec
+    0x100004294 <+1612>: mov    w2, #0x2 ; =2
+    0x100004298 <+1616>: bl     0x100007c4c    ; TCompactProtocolWriter.State.transition__anon_2111 at TCompactProtocolWriter.zig:17
+    0x10000429c <+1620>: str    w0, [sp, #0x54]
+    0x1000042a0 <+1624>: and    w8, w0, #0xffff
+    0x1000042a4 <+1628>: cbnz   w8, 0x100004320 ; <+1752> at TCompactProtocolWriter.zig
+    0x1000042a8 <+1632>: b      0x100004358    ; <+1808> at TCompactProtocolWriter.zig
+    0x1000042ac <+1636>: ldr    w8, [sp, #0x50]
+
+** 135              if (field.tp == .FALSE or field.tp == .TRUE) {
+
+    0x1000042b0 <+1640>: tbnz   w8, #0x0, 0x1000042e4 ; <+1692> at TCompactProtocolWriter.zig
+    0x1000042b4 <+1644>: b      0x10000431c    ; <+1748> at TCompactProtocolWriter.zig:136:17
+    0x1000042b8 <+1648>: mov    w8, #0x1 ; =1
+    0x1000042bc <+1652>: str    w8, [sp, #0x50]
+    0x1000042c0 <+1656>: b      0x1000042ac    ; <+1636> at TCompactProtocolWriter.zig
+    0x1000042c4 <+1660>: ldurb  w8, [x29, #-0x26]
+    0x1000042c8 <+1664>: and    w8, w8, #0xf
+    0x1000042cc <+1668>: mov    w9, #0x1 ; =1
+    0x1000042d0 <+1672>: and    w9, w9, #0xf
+    0x1000042d4 <+1676>: subs   w8, w8, w9
+    0x1000042d8 <+1680>: cset   w8, eq
+    0x1000042dc <+1684>: str    w8, [sp, #0x50]
+    0x1000042e0 <+1688>: b      0x1000042ac    ; <+1636> at TCompactProtocolWriter.zig
+    0x1000042e4 <+1692>: ldur   x0, [x29, #-0x90]
+
+** 136                  return error.NotImplemented;
+
+    0x1000042e8 <+1696>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x1000042ec <+1700>: ldur   x9, [x29, #-0x18]
+    0x1000042f0 <+1704>: adrp   x8, 316
+    0x1000042f4 <+1708>: ldr    x8, [x8, #0x10]
+    0x1000042f8 <+1712>: ldr    x8, [x8]
+    0x1000042fc <+1716>: subs   x8, x8, x9
+    0x100004300 <+1720>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x100004304 <+1724>: b      0x100004308    ; <+1728> at TCompactProtocolWriter.zig
+    0x100004308 <+1728>: mov    w0, #0x5 ; =5
+    0x10000430c <+1732>: ldp    x29, x30, [sp, #0x170]
+    0x100004310 <+1736>: ldp    x28, x27, [sp, #0x160]
+    0x100004314 <+1740>: add    sp, sp, #0x180
+    0x100004318 <+1744>: ret
+    0x10000431c <+1748>: b      0x100004288    ; <+1600> at TCompactProtocolWriter.zig
+    0x100004320 <+1752>: ldur   x0, [x29, #-0x90]
+
+** 138              try self.state.transition(
+
+    0x100004324 <+1756>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x100004328 <+1760>: ldur   x9, [x29, #-0x18]
+    0x10000432c <+1764>: adrp   x8, 316
+    0x100004330 <+1768>: ldr    x8, [x8, #0x10]
+    0x100004334 <+1772>: ldr    x8, [x8]
+    0x100004338 <+1776>: subs   x8, x8, x9
+    0x10000433c <+1780>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x100004340 <+1784>: b      0x100004344    ; <+1788> at TCompactProtocolWriter.zig
+    0x100004344 <+1788>: ldr    w0, [sp, #0x54]
+    0x100004348 <+1792>: ldp    x29, x30, [sp, #0x170]
+    0x10000434c <+1796>: ldp    x28, x27, [sp, #0x160]
+    0x100004350 <+1800>: add    sp, sp, #0x180
+    0x100004354 <+1804>: ret
+    0x100004358 <+1808>: ldur   x9, [x29, #-0x88]
+
+** 141              const delta = field.fid - self.last_fid;
+
+    0x10000435c <+1812>: ldurh  w8, [x29, #-0x28]
+    0x100004360 <+1816>: ldrh   w9, [x9, #0x68]
+    0x100004364 <+1820>: sxth   w8, w8
+    0x100004368 <+1824>: subs   w8, w8, w9, sxth
+    0x10000436c <+1828>: str    w8, [sp, #0x4c]
+    0x100004370 <+1832>: subs   w8, w8, w8, sxth
+    0x100004374 <+1836>: cset   w8, ne
+    0x100004378 <+1840>: tbz    w8, #0x0, 0x100004388 ; <+1856> at TCompactProtocolWriter.zig
+    0x10000437c <+1844>: b      0x100004380    ; <+1848> at TCompactProtocolWriter.zig
+    0x100004380 <+1848>: ldur   x0, [x29, #-0x90]
+    0x100004384 <+1852>: bl     0x100002e80    ; debug.FullPanic((function 'defaultPanic')).integerOverflow at debug.zig:86
+    0x100004388 <+1856>: ldr    w8, [sp, #0x4c]
+    0x10000438c <+1860>: sturh  w8, [x29, #-0x5c]
+
+** 142              if (delta > 0 and delta <= 15) {
+
+    0x100004390 <+1864>: sxth   w8, w8
+    0x100004394 <+1868>: subs   w8, w8, #0x0
+    0x100004398 <+1872>: b.gt   0x1000043bc    ; <+1908> at TCompactProtocolWriter.zig
+    0x10000439c <+1876>: b      0x1000043d4    ; <+1932> at TCompactProtocolWriter.zig
+
+   149              }
+** 150              self.last_fid = field.fid;
+
+    0x1000043a0 <+1880>: ldur   x9, [x29, #-0x68]
+    0x1000043a4 <+1884>: ldurh  w8, [x29, #-0x28]
+    0x1000043a8 <+1888>: strh   w8, [x9, #0x68]
+    0x1000043ac <+1892>: b      0x100003dd4    ; <+396> at TCompactProtocolWriter.zig:103:13
+    0x1000043b0 <+1896>: ldr    w8, [sp, #0x48]
+
+** 142              if (delta > 0 and delta <= 15) {
+
+    0x1000043b4 <+1900>: tbnz   w8, #0x0, 0x1000043e0 ; <+1944> at TCompactProtocolWriter.zig
+    0x1000043b8 <+1904>: b      0x1000043f0    ; <+1960> at TCompactProtocolWriter.zig
+    0x1000043bc <+1908>: ldr    w8, [sp, #0x4c]
+    0x1000043c0 <+1912>: sxth   w8, w8
+    0x1000043c4 <+1916>: subs   w8, w8, #0xf
+    0x1000043c8 <+1920>: cset   w8, le
+    0x1000043cc <+1924>: str    w8, [sp, #0x48]
+    0x1000043d0 <+1928>: b      0x1000043b0    ; <+1896> at TCompactProtocolWriter.zig
+    0x1000043d4 <+1932>: mov    w8, #0x0 ; =0
+    0x1000043d8 <+1936>: str    w8, [sp, #0x48]
+    0x1000043dc <+1940>: b      0x1000043b0    ; <+1896> at TCompactProtocolWriter.zig
+    0x1000043e0 <+1944>: ldr    w8, [sp, #0x4c]
+
+** 143                  const delta8: u8 = @intCast(delta);
+
+    0x1000043e4 <+1948>: sxth   w8, w8
+    0x1000043e8 <+1952>: tbz    w8, #0x1f, 0x10000441c ; <+2004> at TCompactProtocolWriter.zig
+    0x1000043ec <+1956>: b      0x100004414    ; <+1996> at TCompactProtocolWriter.zig
+    0x1000043f0 <+1960>: ldur   x0, [x29, #-0x90]
+
+   146              } else {
+** 147                  try self.writer.writeByte(@intFromEnum(field.tp));
+
+    0x1000043f4 <+1964>: ldur   x1, [x29, #-0x68]
+    0x1000043f8 <+1968>: ldurb  w8, [x29, #-0x26]
+    0x1000043fc <+1972>: and    w2, w8, #0xf
+    0x100004400 <+1976>: bl     0x100007414    ; Io.Writer.writeByte at Writer.zig:727
+    0x100004404 <+1980>: str    w0, [sp, #0x44]
+    0x100004408 <+1984>: and    w8, w0, #0xffff
+    0x10000440c <+1988>: cbnz   w8, 0x1000044a4 ; <+2140> at TCompactProtocolWriter.zig
+    0x100004410 <+1992>: b      0x1000044dc    ; <+2196> at TCompactProtocolWriter.zig
+    0x100004414 <+1996>: ldur   x0, [x29, #-0x90]
+
+** 143                  const delta8: u8 = @intCast(delta);
+
+    0x100004418 <+2000>: bl     0x1000073e0    ; debug.FullPanic((function 'defaultPanic')).integerOutOfBounds at debug.zig:82
+    0x10000441c <+2004>: ldr    w8, [sp, #0x4c]
+    0x100004420 <+2008>: sxth   w8, w8
+    0x100004424 <+2012>: subs   w8, w8, #0xff
+    0x100004428 <+2016>: b.le   0x100004438    ; <+2032> at TCompactProtocolWriter.zig
+    0x10000442c <+2020>: b      0x100004430    ; <+2024> at TCompactProtocolWriter.zig
+    0x100004430 <+2024>: ldur   x0, [x29, #-0x90]
+    0x100004434 <+2028>: bl     0x1000073e0    ; debug.FullPanic((function 'defaultPanic')).integerOutOfBounds at debug.zig:82
+    0x100004438 <+2032>: ldur   x0, [x29, #-0x90]
+    0x10000443c <+2036>: ldr    w8, [sp, #0x4c]
+    0x100004440 <+2040>: sturb  w8, [x29, #-0x5a]
+
+** 144                  const b: u8 = @as(u8, delta8 << 4) | @as(u8, @intFromEnum(field.tp));
+
+    0x100004444 <+2044>: ldurb  w2, [x29, #-0x26]
+    0x100004448 <+2048>: bfi    w2, w8, #4, #28
+    0x10000444c <+2052>: sturb  w2, [x29, #-0x59]
+
+** 145                  try self.writer.writeByte(b);
+
+    0x100004450 <+2056>: ldur   x1, [x29, #-0x68]
+    0x100004454 <+2060>: bl     0x100007414    ; Io.Writer.writeByte at Writer.zig:727
+    0x100004458 <+2064>: str    w0, [sp, #0x40]
+    0x10000445c <+2068>: and    w8, w0, #0xffff
+    0x100004460 <+2072>: cbz    w8, 0x1000044a0 ; <+2136> at TCompactProtocolWriter.zig:145:17
+    0x100004464 <+2076>: b      0x100004468    ; <+2080> at TCompactProtocolWriter.zig
+    0x100004468 <+2080>: ldur   x0, [x29, #-0x90]
+    0x10000446c <+2084>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x100004470 <+2088>: ldur   x9, [x29, #-0x18]
+    0x100004474 <+2092>: adrp   x8, 316
+    0x100004478 <+2096>: ldr    x8, [x8, #0x10]
+    0x10000447c <+2100>: ldr    x8, [x8]
+    0x100004480 <+2104>: subs   x8, x8, x9
+    0x100004484 <+2108>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x100004488 <+2112>: b      0x10000448c    ; <+2116> at TCompactProtocolWriter.zig
+    0x10000448c <+2116>: ldr    w0, [sp, #0x40]
+    0x100004490 <+2120>: ldp    x29, x30, [sp, #0x170]
+    0x100004494 <+2124>: ldp    x28, x27, [sp, #0x160]
+    0x100004498 <+2128>: add    sp, sp, #0x180
+    0x10000449c <+2132>: ret
+    0x1000044a0 <+2136>: b      0x1000043a0    ; <+1880> at TCompactProtocolWriter.zig:150:17
+    0x1000044a4 <+2140>: ldur   x0, [x29, #-0x90]
+
+** 147                  try self.writer.writeByte(@intFromEnum(field.tp));
+
+    0x1000044a8 <+2144>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x1000044ac <+2148>: ldur   x9, [x29, #-0x18]
+    0x1000044b0 <+2152>: adrp   x8, 316
+    0x1000044b4 <+2156>: ldr    x8, [x8, #0x10]
+    0x1000044b8 <+2160>: ldr    x8, [x8]
+    0x1000044bc <+2164>: subs   x8, x8, x9
+    0x1000044c0 <+2168>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x1000044c4 <+2172>: b      0x1000044c8    ; <+2176> at TCompactProtocolWriter.zig
+    0x1000044c8 <+2176>: ldr    w0, [sp, #0x44]
+    0x1000044cc <+2180>: ldp    x29, x30, [sp, #0x170]
+    0x1000044d0 <+2184>: ldp    x28, x27, [sp, #0x160]
+    0x1000044d4 <+2188>: add    sp, sp, #0x180
+    0x1000044d8 <+2192>: ret
+    0x1000044dc <+2196>: ldur   x0, [x29, #-0x90]
+
+** 148                  try self.writeVarint(u16, encodeZigZag(i16, field.fid));
+
+    0x1000044e0 <+2200>: ldur   x8, [x29, #-0x68]
+    0x1000044e4 <+2204>: str    x8, [sp, #0x30]
+    0x1000044e8 <+2208>: ldurh  w1, [x29, #-0x28]
+    0x1000044ec <+2212>: bl     0x100007ec0    ; TCompactProtocolWriter.encodeZigZag__anon_2162 at TCompactProtocolWriter.zig:330
+    0x1000044f0 <+2216>: ldr    x1, [sp, #0x30]
+    0x1000044f4 <+2220>: mov    x2, x0
+    0x1000044f8 <+2224>: ldur   x0, [x29, #-0x90]
+    0x1000044fc <+2228>: bl     0x1000072b8    ; TCompactProtocolWriter.writeVarint__anon_2163 at TCompactProtocolWriter.zig:67
+    0x100004500 <+2232>: str    w0, [sp, #0x3c]
+    0x100004504 <+2236>: and    w8, w0, #0xffff
+    0x100004508 <+2240>: cbz    w8, 0x100004548 ; <+2304> at TCompactProtocolWriter.zig:148:17
+    0x10000450c <+2244>: b      0x100004510    ; <+2248> at TCompactProtocolWriter.zig
+    0x100004510 <+2248>: ldur   x0, [x29, #-0x90]
+    0x100004514 <+2252>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x100004518 <+2256>: ldur   x9, [x29, #-0x18]
+    0x10000451c <+2260>: adrp   x8, 316
+    0x100004520 <+2264>: ldr    x8, [x8, #0x10]
+    0x100004524 <+2268>: ldr    x8, [x8]
+    0x100004528 <+2272>: subs   x8, x8, x9
+    0x10000452c <+2276>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x100004530 <+2280>: b      0x100004534    ; <+2284> at TCompactProtocolWriter.zig
+    0x100004534 <+2284>: ldr    w0, [sp, #0x3c]
+    0x100004538 <+2288>: ldp    x29, x30, [sp, #0x170]
+    0x10000453c <+2292>: ldp    x28, x27, [sp, #0x160]
+    0x100004540 <+2296>: add    sp, sp, #0x180
+    0x100004544 <+2300>: ret
+    0x100004548 <+2304>: b      0x1000043a0    ; <+1880> at TCompactProtocolWriter.zig:150:17
+    0x10000454c <+2308>: ldur   x0, [x29, #-0x90]
+
+** 153              try self.state.transition(
+
+    0x100004550 <+2312>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x100004554 <+2316>: ldur   x9, [x29, #-0x18]
+    0x100004558 <+2320>: adrp   x8, 316
+    0x10000455c <+2324>: ldr    x8, [x8, #0x10]
+    0x100004560 <+2328>: ldr    x8, [x8]
+    0x100004564 <+2332>: subs   x8, x8, x9
+    0x100004568 <+2336>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x10000456c <+2340>: b      0x100004570    ; <+2344> at TCompactProtocolWriter.zig
+    0x100004570 <+2344>: ldur   w0, [x29, #-0xa0]
+    0x100004574 <+2348>: ldp    x29, x30, [sp, #0x170]
+    0x100004578 <+2352>: ldp    x28, x27, [sp, #0x160]
+    0x10000457c <+2356>: add    sp, sp, #0x180
+    0x100004580 <+2360>: ret
+    0x100004584 <+2364>: b      0x100003dd4    ; <+396> at TCompactProtocolWriter.zig:103:13
+    0x100004588 <+2368>: ldur   x0, [x29, #-0x90]
+
+** 159              try self.state.transition(
+
+    0x10000458c <+2372>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x100004590 <+2376>: ldur   x9, [x29, #-0x18]
+    0x100004594 <+2380>: adrp   x8, 316
+    0x100004598 <+2384>: ldr    x8, [x8, #0x10]
+    0x10000459c <+2388>: ldr    x8, [x8]
+    0x1000045a0 <+2392>: subs   x8, x8, x9
+    0x1000045a4 <+2396>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x1000045a8 <+2400>: b      0x1000045ac    ; <+2404> at TCompactProtocolWriter.zig
+    0x1000045ac <+2404>: ldur   w0, [x29, #-0xa4]
+    0x1000045b0 <+2408>: ldp    x29, x30, [sp, #0x170]
+    0x1000045b4 <+2412>: ldp    x28, x27, [sp, #0x160]
+    0x1000045b8 <+2416>: add    sp, sp, #0x180
+    0x1000045bc <+2420>: ret
+    0x1000045c0 <+2424>: ldur   x0, [x29, #-0x90]
+
+** 162              try self.writer.writeByte(0);
+
+    0x1000045c4 <+2428>: ldur   x1, [x29, #-0x68]
+    0x1000045c8 <+2432>: mov    w2, #0x0 ; =0
+    0x1000045cc <+2436>: bl     0x100007414    ; Io.Writer.writeByte at Writer.zig:727
+    0x1000045d0 <+2440>: str    w0, [sp, #0x2c]
+    0x1000045d4 <+2444>: and    w8, w0, #0xffff
+    0x1000045d8 <+2448>: cbz    w8, 0x100004618 ; <+2512> at TCompactProtocolWriter.zig:162:13
+    0x1000045dc <+2452>: b      0x1000045e0    ; <+2456> at TCompactProtocolWriter.zig
+    0x1000045e0 <+2456>: ldur   x0, [x29, #-0x90]
+    0x1000045e4 <+2460>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x1000045e8 <+2464>: ldur   x9, [x29, #-0x18]
+    0x1000045ec <+2468>: adrp   x8, 316
+    0x1000045f0 <+2472>: ldr    x8, [x8, #0x10]
+    0x1000045f4 <+2476>: ldr    x8, [x8]
+    0x1000045f8 <+2480>: subs   x8, x8, x9
+    0x1000045fc <+2484>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x100004600 <+2488>: b      0x100004604    ; <+2492> at TCompactProtocolWriter.zig
+    0x100004604 <+2492>: ldr    w0, [sp, #0x2c]
+    0x100004608 <+2496>: ldp    x29, x30, [sp, #0x170]
+    0x10000460c <+2500>: ldp    x28, x27, [sp, #0x160]
+    0x100004610 <+2504>: add    sp, sp, #0x180
+    0x100004614 <+2508>: ret
+    0x100004618 <+2512>: b      0x100003dd4    ; <+396> at TCompactProtocolWriter.zig:103:13
+    0x10000461c <+2516>: ldur   x0, [x29, #-0x90]
+
+** 165              try self.writeVarint(u64, s.len);
+
+    0x100004620 <+2520>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x100004624 <+2524>: ldur   x9, [x29, #-0x18]
+    0x100004628 <+2528>: adrp   x8, 316
+    0x10000462c <+2532>: ldr    x8, [x8, #0x10]
+    0x100004630 <+2536>: ldr    x8, [x8]
+    0x100004634 <+2540>: subs   x8, x8, x9
+    0x100004638 <+2544>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x10000463c <+2548>: b      0x100004640    ; <+2552> at TCompactProtocolWriter.zig
+    0x100004640 <+2552>: ldur   w0, [x29, #-0xa8]
+    0x100004644 <+2556>: ldp    x29, x30, [sp, #0x170]
+    0x100004648 <+2560>: ldp    x28, x27, [sp, #0x160]
+    0x10000464c <+2564>: add    sp, sp, #0x180
+    0x100004650 <+2568>: ret
+    0x100004654 <+2572>: ldur   x3, [x29, #-0xb0]
+    0x100004658 <+2576>: ldr    x2, [sp, #0xb8]
+    0x10000465c <+2580>: ldur   x0, [x29, #-0x90]
+
+** 166              try self.writer.writeAll(s);
+
+    0x100004660 <+2584>: ldur   x1, [x29, #-0x68]
+    0x100004664 <+2588>: bl     0x100007f94    ; Io.Writer.writeAll at Writer.zig:521
+    0x100004668 <+2592>: str    w0, [sp, #0x28]
+    0x10000466c <+2596>: and    w8, w0, #0xffff
+    0x100004670 <+2600>: cbz    w8, 0x1000046b0 ; <+2664> at TCompactProtocolWriter.zig:166:13
+    0x100004674 <+2604>: b      0x100004678    ; <+2608> at TCompactProtocolWriter.zig
+    0x100004678 <+2608>: ldur   x0, [x29, #-0x90]
+    0x10000467c <+2612>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x100004680 <+2616>: ldur   x9, [x29, #-0x18]
+    0x100004684 <+2620>: adrp   x8, 316
+    0x100004688 <+2624>: ldr    x8, [x8, #0x10]
+    0x10000468c <+2628>: ldr    x8, [x8]
+    0x100004690 <+2632>: subs   x8, x8, x9
+    0x100004694 <+2636>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x100004698 <+2640>: b      0x10000469c    ; <+2644> at TCompactProtocolWriter.zig
+    0x10000469c <+2644>: ldr    w0, [sp, #0x28]
+    0x1000046a0 <+2648>: ldp    x29, x30, [sp, #0x170]
+    0x1000046a4 <+2652>: ldp    x28, x27, [sp, #0x160]
+    0x1000046a8 <+2656>: add    sp, sp, #0x180
+    0x1000046ac <+2660>: ret
+    0x1000046b0 <+2664>: b      0x100003dd4    ; <+396> at TCompactProtocolWriter.zig:103:13
+    0x1000046b4 <+2668>: ldr    x1, [sp, #0xb0]
+    0x1000046b8 <+2672>: ldur   x0, [x29, #-0x90]
+    0x1000046bc <+2676>: ldr    w2, [sp, #0x20]
+
+** 169              try self.writer.writeByte(if (b) 1 else 0);
+
+    0x1000046c0 <+2680>: bl     0x100007414    ; Io.Writer.writeByte at Writer.zig:727
+    0x1000046c4 <+2684>: str    w0, [sp, #0x24]
+    0x1000046c8 <+2688>: and    w8, w0, #0xffff
+    0x1000046cc <+2692>: cbnz   w8, 0x1000046ec ; <+2724> at TCompactProtocolWriter.zig
+    0x1000046d0 <+2696>: b      0x100004724    ; <+2780> at TCompactProtocolWriter.zig:169:13
+    0x1000046d4 <+2700>: mov    w8, #0x1 ; =1
+    0x1000046d8 <+2704>: str    w8, [sp, #0x20]
+    0x1000046dc <+2708>: b      0x1000046b4    ; <+2668> at TCompactProtocolWriter.zig
+    0x1000046e0 <+2712>: mov    w8, #0x0 ; =0
+    0x1000046e4 <+2716>: str    w8, [sp, #0x20]
+    0x1000046e8 <+2720>: b      0x1000046b4    ; <+2668> at TCompactProtocolWriter.zig
+    0x1000046ec <+2724>: ldur   x0, [x29, #-0x90]
+    0x1000046f0 <+2728>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x1000046f4 <+2732>: ldur   x9, [x29, #-0x18]
+    0x1000046f8 <+2736>: adrp   x8, 316
+    0x1000046fc <+2740>: ldr    x8, [x8, #0x10]
+    0x100004700 <+2744>: ldr    x8, [x8]
+    0x100004704 <+2748>: subs   x8, x8, x9
+    0x100004708 <+2752>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x10000470c <+2756>: b      0x100004710    ; <+2760> at TCompactProtocolWriter.zig
+    0x100004710 <+2760>: ldr    w0, [sp, #0x24]
+    0x100004714 <+2764>: ldp    x29, x30, [sp, #0x170]
+    0x100004718 <+2768>: ldp    x28, x27, [sp, #0x160]
+    0x10000471c <+2772>: add    sp, sp, #0x180
+    0x100004720 <+2776>: ret
+    0x100004724 <+2780>: b      0x100003dd4    ; <+396> at TCompactProtocolWriter.zig:103:13
+    0x100004728 <+2784>: ldur   x0, [x29, #-0x90]
+
+** 172              try self.writeVarint(u16, encodeZigZag(i16, i));
+
+    0x10000472c <+2788>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x100004730 <+2792>: ldur   x9, [x29, #-0x18]
+    0x100004734 <+2796>: adrp   x8, 316
+    0x100004738 <+2800>: ldr    x8, [x8, #0x10]
+    0x10000473c <+2804>: ldr    x8, [x8]
+    0x100004740 <+2808>: subs   x8, x8, x9
+    0x100004744 <+2812>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x100004748 <+2816>: b      0x10000474c    ; <+2820> at TCompactProtocolWriter.zig
+    0x10000474c <+2820>: ldr    w0, [sp, #0xac]
+    0x100004750 <+2824>: ldp    x29, x30, [sp, #0x170]
+    0x100004754 <+2828>: ldp    x28, x27, [sp, #0x160]
+    0x100004758 <+2832>: add    sp, sp, #0x180
+    0x10000475c <+2836>: ret
+    0x100004760 <+2840>: b      0x100003dd4    ; <+396> at TCompactProtocolWriter.zig:103:13
+    0x100004764 <+2844>: ldur   x0, [x29, #-0x90]
+
+** 175              try self.writeVarint(u32, encodeZigZag(i32, i));
+
+    0x100004768 <+2848>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x10000476c <+2852>: ldur   x9, [x29, #-0x18]
+    0x100004770 <+2856>: adrp   x8, 316
+    0x100004774 <+2860>: ldr    x8, [x8, #0x10]
+    0x100004778 <+2864>: ldr    x8, [x8]
+    0x10000477c <+2868>: subs   x8, x8, x9
+    0x100004780 <+2872>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x100004784 <+2876>: b      0x100004788    ; <+2880> at TCompactProtocolWriter.zig
+    0x100004788 <+2880>: ldr    w0, [sp, #0x9c]
+    0x10000478c <+2884>: ldp    x29, x30, [sp, #0x170]
+    0x100004790 <+2888>: ldp    x28, x27, [sp, #0x160]
+    0x100004794 <+2892>: add    sp, sp, #0x180
+    0x100004798 <+2896>: ret
+    0x10000479c <+2900>: b      0x100003dd4    ; <+396> at TCompactProtocolWriter.zig:103:13
+    0x1000047a0 <+2904>: ldur   x0, [x29, #-0x90]
+
+** 178              try self.writeVarint(u64, encodeZigZag(i64, i));
+
+    0x1000047a4 <+2908>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x1000047a8 <+2912>: ldur   x9, [x29, #-0x18]
+    0x1000047ac <+2916>: adrp   x8, 316
+    0x1000047b0 <+2920>: ldr    x8, [x8, #0x10]
+    0x1000047b4 <+2924>: ldr    x8, [x8]
+    0x1000047b8 <+2928>: subs   x8, x8, x9
+    0x1000047bc <+2932>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x1000047c0 <+2936>: b      0x1000047c4    ; <+2940> at TCompactProtocolWriter.zig
+    0x1000047c4 <+2940>: ldr    w0, [sp, #0x8c]
+    0x1000047c8 <+2944>: ldp    x29, x30, [sp, #0x170]
+    0x1000047cc <+2948>: ldp    x28, x27, [sp, #0x160]
+    0x1000047d0 <+2952>: add    sp, sp, #0x180
+    0x1000047d4 <+2956>: ret
+    0x1000047d8 <+2960>: b      0x100003dd4    ; <+396> at TCompactProtocolWriter.zig:103:13
+    0x1000047dc <+2964>: ldur   x0, [x29, #-0x90]
+
+** 181              if (check_states) try self.container_states.appendBounded(self.state);
+
+    0x1000047e0 <+2968>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x1000047e4 <+2972>: ldur   x9, [x29, #-0x18]
+    0x1000047e8 <+2976>: adrp   x8, 316
+    0x1000047ec <+2980>: ldr    x8, [x8, #0x10]
+    0x1000047f0 <+2984>: ldr    x8, [x8]
+    0x1000047f4 <+2988>: subs   x8, x8, x9
+    0x1000047f8 <+2992>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x1000047fc <+2996>: b      0x100004800    ; <+3000> at TCompactProtocolWriter.zig
+    0x100004800 <+3000>: ldr    w0, [sp, #0x7c]
+    0x100004804 <+3004>: ldp    x29, x30, [sp, #0x170]
+    0x100004808 <+3008>: ldp    x28, x27, [sp, #0x160]
+    0x10000480c <+3012>: add    sp, sp, #0x180
+    0x100004810 <+3016>: ret
+    0x100004814 <+3020>: ldur   x0, [x29, #-0x90]
+
+** 182              try self.state.transition(
+   183                  States.initMany(&[_]State{.VALUE_WRITE, .CONTAINER_WRITE}),
+   184                  .CONTAINER_WRITE
+
+    0x100004818 <+3024>: ldur   x8, [x29, #-0x68]
+    0x10000481c <+3028>: add    x1, x8, #0xec
+    0x100004820 <+3032>: mov    w2, #0x3 ; =3
+    0x100004824 <+3036>: bl     0x100008230    ; TCompactProtocolWriter.State.transition__anon_2236 at TCompactProtocolWriter.zig:17
+    0x100004828 <+3040>: str    w0, [sp, #0x1c]
+    0x10000482c <+3044>: and    w8, w0, #0xffff
+    0x100004830 <+3048>: cbz    w8, 0x100004870 ; <+3112> at TCompactProtocolWriter.zig:186:21
+    0x100004834 <+3052>: b      0x100004838    ; <+3056> at TCompactProtocolWriter.zig
+    0x100004838 <+3056>: ldur   x0, [x29, #-0x90]
+    0x10000483c <+3060>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x100004840 <+3064>: ldur   x9, [x29, #-0x18]
+    0x100004844 <+3068>: adrp   x8, 316
+    0x100004848 <+3072>: ldr    x8, [x8, #0x10]
+    0x10000484c <+3076>: ldr    x8, [x8]
+    0x100004850 <+3080>: subs   x8, x8, x9
+    0x100004854 <+3084>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x100004858 <+3088>: b      0x10000485c    ; <+3092> at TCompactProtocolWriter.zig
+    0x10000485c <+3092>: ldr    w0, [sp, #0x1c]
+    0x100004860 <+3096>: ldp    x29, x30, [sp, #0x170]
+    0x100004864 <+3100>: ldp    x28, x27, [sp, #0x160]
+    0x100004868 <+3104>: add    sp, sp, #0x180
+    0x10000486c <+3108>: ret
+
+   185              );
+** 186              if (meta.size <= 14) {
+
+    0x100004870 <+3112>: ldur   w8, [x29, #-0x20]
+    0x100004874 <+3116>: subs   w8, w8, #0xe
+    0x100004878 <+3120>: b.ls   0x100004884    ; <+3132> at TCompactProtocolWriter.zig:187:48
+    0x10000487c <+3124>: b      0x100004898    ; <+3152> at TCompactProtocolWriter.zig
+
+** 191                  try self.writeVarint(u32, meta.size);
+   192              }
+   193          },
+
+    0x100004880 <+3128>: b      0x100003dd4    ; <+396> at TCompactProtocolWriter.zig:103:13
+
+** 187                  const size8: u8 = @intCast(meta.size);
+
+    0x100004884 <+3132>: ldur   w8, [x29, #-0x20]
+    0x100004888 <+3136>: str    w8, [sp, #0x18]
+    0x10000488c <+3140>: subs   w8, w8, #0xff
+    0x100004890 <+3144>: b.ls   0x1000048cc    ; <+3204> at TCompactProtocolWriter.zig
+    0x100004894 <+3148>: b      0x1000048c4    ; <+3196> at TCompactProtocolWriter.zig
+    0x100004898 <+3152>: ldur   x0, [x29, #-0x90]
+
+   189              } else {
+** 190                  try self.writer.writeByte(@as(u8, 0xf0) | @as(u8, @intFromEnum(meta.elem_type)));
+
+    0x10000489c <+3156>: ldur   x1, [x29, #-0x68]
+    0x1000048a0 <+3160>: ldurb  w9, [x29, #-0x1c]
+    0x1000048a4 <+3164>: mov    w8, #-0x10 ; =-16
+    0x1000048a8 <+3168>: and    w9, w9, #0xf
+    0x1000048ac <+3172>: orr    w2, w8, w9
+    0x1000048b0 <+3176>: bl     0x100007414    ; Io.Writer.writeByte at Writer.zig:727
+    0x1000048b4 <+3180>: str    w0, [sp, #0x14]
+    0x1000048b8 <+3184>: and    w8, w0, #0xffff
+    0x1000048bc <+3188>: cbnz   w8, 0x100004934 ; <+3308> at TCompactProtocolWriter.zig
+    0x1000048c0 <+3192>: b      0x10000496c    ; <+3364> at TCompactProtocolWriter.zig
+    0x1000048c4 <+3196>: ldur   x0, [x29, #-0x90]
+
+** 187                  const size8: u8 = @intCast(meta.size);
+
+    0x1000048c8 <+3200>: bl     0x1000073e0    ; debug.FullPanic((function 'defaultPanic')).integerOutOfBounds at debug.zig:82
+    0x1000048cc <+3204>: ldur   x0, [x29, #-0x90]
+    0x1000048d0 <+3208>: ldr    w8, [sp, #0x18]
+    0x1000048d4 <+3212>: sturb  w8, [x29, #-0x31]
+
+** 188                  try self.writer.writeByte(@as(u8, size8 << 4) | @as(u8, @intFromEnum(meta.elem_type)));
+
+    0x1000048d8 <+3216>: ldur   x1, [x29, #-0x68]
+    0x1000048dc <+3220>: ldurb  w2, [x29, #-0x1c]
+    0x1000048e0 <+3224>: bfi    w2, w8, #4, #28
+    0x1000048e4 <+3228>: bl     0x100007414    ; Io.Writer.writeByte at Writer.zig:727
+    0x1000048e8 <+3232>: str    w0, [sp, #0x10]
+    0x1000048ec <+3236>: and    w8, w0, #0xffff
+    0x1000048f0 <+3240>: cbz    w8, 0x100004930 ; <+3304> at TCompactProtocolWriter.zig:188:17
+    0x1000048f4 <+3244>: b      0x1000048f8    ; <+3248> at TCompactProtocolWriter.zig
+    0x1000048f8 <+3248>: ldur   x0, [x29, #-0x90]
+    0x1000048fc <+3252>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x100004900 <+3256>: ldur   x9, [x29, #-0x18]
+    0x100004904 <+3260>: adrp   x8, 316
+    0x100004908 <+3264>: ldr    x8, [x8, #0x10]
+    0x10000490c <+3268>: ldr    x8, [x8]
+    0x100004910 <+3272>: subs   x8, x8, x9
+    0x100004914 <+3276>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x100004918 <+3280>: b      0x10000491c    ; <+3284> at TCompactProtocolWriter.zig
+    0x10000491c <+3284>: ldr    w0, [sp, #0x10]
+    0x100004920 <+3288>: ldp    x29, x30, [sp, #0x170]
+    0x100004924 <+3292>: ldp    x28, x27, [sp, #0x160]
+    0x100004928 <+3296>: add    sp, sp, #0x180
+    0x10000492c <+3300>: ret
+    0x100004930 <+3304>: b      0x100004880    ; <+3128> at TCompactProtocolWriter.zig:191:17
+    0x100004934 <+3308>: ldur   x0, [x29, #-0x90]
+
+** 190                  try self.writer.writeByte(@as(u8, 0xf0) | @as(u8, @intFromEnum(meta.elem_type)));
+
+    0x100004938 <+3312>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x10000493c <+3316>: ldur   x9, [x29, #-0x18]
+    0x100004940 <+3320>: adrp   x8, 316
+    0x100004944 <+3324>: ldr    x8, [x8, #0x10]
+    0x100004948 <+3328>: ldr    x8, [x8]
+    0x10000494c <+3332>: subs   x8, x8, x9
+    0x100004950 <+3336>: b.ne   0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x100004954 <+3340>: b      0x100004958    ; <+3344> at TCompactProtocolWriter.zig
+    0x100004958 <+3344>: ldr    w0, [sp, #0x14]
+    0x10000495c <+3348>: ldp    x29, x30, [sp, #0x170]
+    0x100004960 <+3352>: ldp    x28, x27, [sp, #0x160]
+    0x100004964 <+3356>: add    sp, sp, #0x180
+    0x100004968 <+3360>: ret
+    0x10000496c <+3364>: ldur   x0, [x29, #-0x90]
+
+** 191                  try self.writeVarint(u32, meta.size);
+
+    0x100004970 <+3368>: ldur   x1, [x29, #-0x68]
+    0x100004974 <+3372>: ldur   w2, [x29, #-0x20]
+    0x100004978 <+3376>: bl     0x10000774c    ; TCompactProtocolWriter.writeVarint__anon_2209 at TCompactProtocolWriter.zig:67
+    0x10000497c <+3380>: str    w0, [sp, #0xc]
+    0x100004980 <+3384>: and    w8, w0, #0xffff
+    0x100004984 <+3388>: cbz    w8, 0x1000049c8 ; <+3456> at TCompactProtocolWriter.zig:191:17
+    0x100004988 <+3392>: b      0x10000498c    ; <+3396> at TCompactProtocolWriter.zig
+    0x10000498c <+3396>: ldur   x0, [x29, #-0x90]
+    0x100004990 <+3400>: bl     0x100000848    ; builtin.returnError at builtin.zig:1105
+    0x100004994 <+3404>: ldur   x9, [x29, #-0x18]
+    0x100004998 <+3408>: adrp   x8, 316
+    0x10000499c <+3412>: ldr    x8, [x8, #0x10]
+    0x1000049a0 <+3416>: ldr    x8, [x8]
+    0x1000049a4 <+3420>: subs   x8, x8, x9
+    0x1000049a8 <+3424>: b.eq   0x1000049b4    ; <+3436> at TCompactProtocolWriter.zig
+    0x1000049ac <+3428>: b      0x1000049b0    ; <+3432> at TCompactProtocolWriter.zig:191:17
+    0x1000049b0 <+3432>: bl     0x1001050f0    ; __ubsan_handle_alignment_assumption + 360
+    0x1000049b4 <+3436>: ldr    w0, [sp, #0xc]
+    0x1000049b8 <+3440>: ldp    x29, x30, [sp, #0x170]
+    0x1000049bc <+3444>: ldp    x28, x27, [sp, #0x160]
+    0x1000049c0 <+3448>: add    sp, sp, #0x180
+    0x1000049c4 <+3452>: ret
+    0x1000049c8 <+3456>: b      0x100004880    ; <+3128> at TCompactProtocolWriter.zig:191:17
+(lldb) memory read -fx -s8 -c 64 $sp+0x180
+0x16fdfd680: 0xaaaaaaaaaaaaaaaa 0xaaaaaaaaaaaaaaaa
+0x16fdfd690: 0xaaaaaaaaaaaaaaaa 0x0000000000000000
+0x16fdfd6a0: 0x0000000000000000 0x0000000000000000
+0x16fdfd6b0: 0x000000016fdfe6e0 0x01000001f61b80b0
+0x16fdfd6c0: 0x000000016fdfd6f0 0x000000016fdfd7d0
+0x16fdfd6d0: 0x000000016fdfe6e0 0x0000000100109840
+0x16fdfd6e0: 0x00000000007527c4 0x0000000100109840
+0x16fdfd6f0: 0x000000016fdfda68 0x000000016fdfda68
+0x16fdfd700: 0x000000016fdfd780 0x000000010005d4dc
+0x16fdfd710: 0x00000000007527c4 0x000000016fdfe6e0
+0x16fdfd720: 0x00000000007527c4 0x0000000100148880
+0x16fdfd730: 0x0000000100148880 0x0000000100148880
+0x16fdfd740: 0x0000000100148880 0x0000000100148880
+0x16fdfd750: 0x000000016fdfe6e0 0x0000000100148880
+0x16fdfd760: 0x0000000100148880 0x0000000000000000
+0x16fdfd770: 0x00000001000cd9e8 0x0000000100148880
+0x16fdfd780: 0x000000016fdfd7c0 0x0000000100036910
+0x16fdfd790: 0x000000016fdfe6e0 0x0000000100148880
+0x16fdfd7a0: 0x0000000100148880 0x0000000000000000
+0x16fdfd7b0: 0x0000000100148880 0x0000000100148880
+0x16fdfd7c0: 0x000000016fdfd7e0 0x0000000100018d90
+0x16fdfd7d0: 0x000000016fdfe6e0 0x0000000000000000
+0x16fdfd7e0: 0x000000016fdfd7f0 0x00000001000063ec
+0x16fdfd7f0: 0x000000016fdfd880 0x00000001000922fc
+0x16fdfd800: 0x0000000000000000 0x000000016fdfd838
+0x16fdfd810: 0x0000000000000040 0x000000016fdfdd48
+0x16fdfd820: 0x000000016fdfe6e0 0x00000001001488a8
+0x16fdfd830: 0x00000001001488a8 0x7061632e202c7d20
+0x16fdfd840: 0x203d207974696361 0x200a7d207d203436
+0x16fdfd850: 0x202c7d203436203d 0x6e6961746e6f632e
+0x16fdfd860: 0x65746174735f7265 0x06c99658f4b300c4
+0x16fdfd870: 0x0000000000000000 0x0000000000000000
+(lldb) register read
+General Purpose Registers:
+        x0 = 0x000000016fdfe6e0
+        x1 = 0x0000000000000103
+        x2 = 0x0000000000000103
+        x3 = 0x0000000000000001
+        x4 = 0x000000016fdfd280
+        x5 = 0x0000000000000002
+        x6 = 0x000000000000000a
+        x7 = 0x0000000000000000
+        x8 = 0x000000006fdfda68
+        x9 = 0x06c99658f4b300c4
+       x10 = 0x0000000000000000
+       x11 = 0x000000000000001c
+       x12 = 0x0000000100106c14
+       x13 = 0x0000000000000000
+       x14 = 0x000000000000000d
+       x15 = 0x000000000000000f
+       x16 = 0x000000018835d824  libsystem_platform.dylib`os_unfair_lock_unlock
+       x17 = 0x00000001f7486520
+       x18 = 0x0000000000000000
+       x19 = 0x00000001f61b80b0  lsl::sAllocatorBuffer
+       x20 = 0x00000001f61b8018  lsl::sMemoryManagerBuffer
+       x21 = 0x000000016fdfe8a8
+       x22 = 0x0fffffff0009d5d6
+       x23 = 0x00000001f61b8018  lsl::sMemoryManagerBuffer
+       x24 = 0x00000001f61b8150  dyld`lsl::sPoolBytes + 96
+       x25 = 0x000000016fdfea10
+       x26 = 0x0000000000000000
+       x27 = 0x0000000000000000
+       x28 = 0x0000000000000000
+        fp = 0x000000016fdfd670
+        lr = 0x0000000100004080  test`TCompactProtocolWriter.write + 1080 at TCompactProtocolWriter.zig:108:28
+        sp = 0x000000016fdfd500
+        pc = 0x0000000100004088  test`TCompactProtocolWriter.write + 1088 at TCompactProtocolWriter.zig:109:39
+      cpsr = 0x60001000
+
+(lldb) s
+Process 91415 stopped
+* thread #1, queue = 'com.apple.main-thread', stop reason = EXC_BAD_ACCESS (code=1, address=0x6fdfdb54)
+    frame #0: 0x0000000100004090 test`TCompactProtocolWriter.write(self=0x000000016fdfda68, api_call=TCompactProtocolWriter.ApiCall @ 0x0000000100109848) at TCompactProtocolWriter.zig:109:72
+   106              std.debug.print("check states is: {}\n", .{check_states});
+   107              std.debug.print("builtin is: {any}\n", .{@import("builtin")});
+   108              std.debug.print("builtin mode is: {any}\n", .{@import("builtin").mode});
+-> 109              if (check_states) try self.struct_states.appendBounded(self.state);
+   110              //try self.structs.append(.{.state = self.state, .fid = self.last_fid});
+   111              try self.state.transition(
+   112                  States.initMany(&[_]State{.CLEAR, .CONTAINER_WRITE, .VALUE_WRITE}),
+Target 0: (test) stopped.
+(lldb) register read
+General Purpose Registers:
+        x0 = 0x000000016fdfe6e0
+        x1 = 0x000000016fdfdaa0
+        x2 = 0x0000000000000103
+        x3 = 0x0000000000000001
+        x4 = 0x000000016fdfd280
+        x5 = 0x0000000000000002
+        x6 = 0x000000000000000a
+        x7 = 0x0000000000000000
+        x8 = 0x000000006fdfda68
+        x9 = 0x000000016fdfda68
+       x10 = 0x0000000000000000
+       x11 = 0x000000000000001c
+       x12 = 0x0000000100106c14
+       x13 = 0x0000000000000000
+       x14 = 0x000000000000000d
+       x15 = 0x000000000000000f
+       x16 = 0x000000018835d824  libsystem_platform.dylib`os_unfair_lock_unlock
+       x17 = 0x00000001f7486520
+       x18 = 0x0000000000000000
+       x19 = 0x00000001f61b80b0  lsl::sAllocatorBuffer
+       x20 = 0x00000001f61b8018  lsl::sMemoryManagerBuffer
+       x21 = 0x000000016fdfe8a8
+       x22 = 0x0fffffff0009d5d6
+       x23 = 0x00000001f61b8018  lsl::sMemoryManagerBuffer
+       x24 = 0x00000001f61b8150  dyld`lsl::sPoolBytes + 96
+       x25 = 0x000000016fdfea10
+       x26 = 0x0000000000000000
+       x27 = 0x0000000000000000
+       x28 = 0x0000000000000000
+        fp = 0x000000016fdfd670
+        lr = 0x0000000100004080  test`TCompactProtocolWriter.write + 1080 at TCompactProtocolWriter.zig:108:28
+        sp = 0x000000016fdfd500
+        pc = 0x0000000100004090  test`TCompactProtocolWriter.write + 1096 at TCompactProtocolWriter.zig:109:72
+      cpsr = 0x60201000
+
+
+(lldb) disassemble --start-address ($pc-0x10) --end-address $pc+0x10
+test`TCompactProtocolWriter.write:
+    0x100004080 <+1080>: ldur   x8, [x29, #-0x88]
+    0x100004084 <+1084>: ldur   x0, [x29, #-0x90]
+    0x100004088 <+1088>: ldur   x9, [x29, #-0x68]
+    0x10000408c <+1092>: add    x1, x9, #0x38
+->  0x100004090 <+1096>: ldrb   w2, [x8, #0xec]
+    0x100004094 <+1100>: bl     0x100007b3c    ; array_list.ArrayListAlignedUnmanaged(TCompactProtocolWriter.State,null).appendBounded at array_list.zig:930
+    0x100004098 <+1104>: str    w0, [sp, #0x78]
+    0x10000409c <+1108>: and    w8, w0, #0xffff

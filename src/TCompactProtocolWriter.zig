@@ -52,17 +52,8 @@ pub fn init(w: std.Io.Writer) Self {
     self.struct_states = std.ArrayListUnmanaged(State).initBuffer(&self._struct_states_buf);
     self.container_states = std.ArrayListUnmanaged(State).initBuffer(&self._container_states_buf);
     return self;
-
 }
 
-// fn transition(self: *Self, allowed: []const State, next: State) WriterError!void {
-//     if (builtin.mode == .Debug) {
-//         if (std.mem.indexOfScalar(State, allowed, self.state) == null) {
-//             return error.InvalidState;
-//         }
-//     }
-//     self.state = next;
-// }
 
 pub const WriterError = std.Io.Writer.Error || error {InvalidState, Overflow, OutOfMemory, NotImplemented};
 
@@ -75,21 +66,17 @@ fn encodeZigZag(comptime SignedT: type, n: SignedT) std.meta.Int(.unsigned, @bit
 
 fn writeVarint(self: *Self, comptime T: type, n: T) !void {
     var val = n;
-    std.debug.print("Writing varint: {}, hex: ", .{n});
     while (true) {
         if ((val & ~@as(T, 0x7F)) == 0) {
             const b: u8 = @intCast(val);
-            std.debug.print("0x{x} ", .{b});
             try self.writer.writeByte(b);
             break;
         } else {
             const b: u8 = @intCast((val & 0x7F) | 0x80);
-            std.debug.print("0x{x} ", .{b});
             try self.writer.writeByte(b);
             val = val >> 7;
         }
     }
-    std.debug.print("\n", .{});
 }
 
 pub const ListBeginMeta = struct {
@@ -116,13 +103,15 @@ pub fn write(self: *Self, api_call: ApiCall) WriterError!void {
     switch (api_call) {
         .StructBegin => {
             try self.last_fids.appendBounded(self.last_fid);
+            std.debug.print("check states is: {}\n", .{check_states});
+            std.debug.print("builtin is: {any}\n", .{@import("builtin")});
+            std.debug.print("builtin mode is: {any}\n", .{@import("builtin").mode});
             if (check_states) try self.struct_states.appendBounded(self.state);
             //try self.structs.append(.{.state = self.state, .fid = self.last_fid});
             try self.state.transition(
                 States.initMany(&[_]State{.CLEAR, .CONTAINER_WRITE, .VALUE_WRITE}),
                 .FIELD_WRITE);
             self.last_fid = 0;
-            std.debug.print(".StructBegin: Last fid is: {}\n", .{self.last_fid});
         },
         .StructEnd => {
             try self.state.transition(
@@ -153,7 +142,6 @@ pub fn write(self: *Self, api_call: ApiCall) WriterError!void {
             if (delta > 0 and delta <= 15) {
                 const delta8: u8 = @intCast(delta);
                 const b: u8 = @as(u8, delta8 << 4) | @as(u8, @intFromEnum(field.tp));
-                std.debug.print("Field begin, writing 0x{x}, {}\n", .{b, field});
                 try self.writer.writeByte(b);
             } else {
                 try self.writer.writeByte(@intFromEnum(field.tp));

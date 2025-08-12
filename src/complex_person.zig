@@ -19,11 +19,9 @@ pub const Animal = union(enum) {
         var animal: ?Animal = null;
         try p.readStructBegin();
         while (try readFieldOrStop(p))  |field| {
-            std.debug.print("animal field: {}\n", .{field});
             if (try readAnimalField(p, field)) |new_animal| {
                 animal = new_animal;
             }
-            std.debug.print("animal : {?}\n", .{animal});
             try p.readFieldEnd();
         }
         try p.readStructEnd();
@@ -191,7 +189,6 @@ pub const ComplexPerson = struct {
         }
         try w.write(.ListEnd);
         try w.write(.FieldEnd);
-        std.debug.print("\nSTARTING pets field HERE\n", .{});
         try w.write(.{.FieldBegin = .{.tp = .LIST, .fid = @intFromEnum(FieldTag.pets)}});
         
 // yes, reading the pets list
@@ -213,14 +210,12 @@ pub const ComplexPerson = struct {
     // }});
 
         const list_meta: Writer.ListBeginMeta = .{.elem_type = .STRUCT, .size = @intCast(self.pets.items.len)};
-        std.debug.print(".ListBegin: {}\n", .{list_meta});
         try w.write(.{.ListBegin = list_meta});
         for (self.pets.items) |item| {
             try item.write(w);
         }
         try w.write(.ListEnd);
         try w.write(.FieldEnd);
-        std.debug.print("pets ENDED HERE\n\n", .{}); 
         try w.write(.{.FieldBegin = .{.tp = .LIST, .fid = @intFromEnum(FieldTag.socks)}});
         try w.write(.{.ListBegin = .{.elem_type = .STRUCT, .size = @intCast(self.socks.items.len)}});
         for (self.socks.items) |item| {
@@ -286,9 +281,7 @@ pub const ComplexPerson = struct {
                 },
                 .pets => {
                     if (field.tp == Parser.Type.LIST) {
-                        std.debug.print("\n\nreading the pets list; field meta: {}\n", .{field});
                         const list_meta = try p.readListBegin();
-                        std.debug.print(".ListBegin: {}\n", .{list_meta});
                         try person.pets.ensureTotalCapacity(list_meta.size);
                         for (0..list_meta.size) |_| {
                             //Animal.read(p)
@@ -326,6 +319,7 @@ pub const ComplexPerson = struct {
                 .default => try p.skip(field.tp),
                 else => continue :sw .default,
             }
+            try p.readFieldEnd();
         }
         try p.readStructEnd();
         return person;
@@ -355,7 +349,7 @@ test "Animal.read - age_of_dog" {
                 .StructEnd,
             });
 
-    var parser = Parser{ .reader = std.Io.Reader.fixed(data) };
+    var parser = Parser.init( std.Io.Reader.fixed(data) );
     const animal = try Animal.read(&parser);
     try std.testing.expectEqual(@as(i16, 42), animal.age_of_dog);
 }
@@ -371,7 +365,7 @@ test "Animal.read - number_of_fish" {
                 .FieldStop,
                 .StructEnd,
             });
-    var parser = Parser{ .reader = std.Io.Reader.fixed(data) };
+    var parser = Parser.init( std.Io.Reader.fixed(data) );
     const animal = try Animal.read(&parser);
     try std.testing.expectEqual(@as(i16, 100), animal.number_of_fish);
 }
@@ -390,7 +384,7 @@ test "Animal.read - latest wins" {
                     .FieldStop,
                 .StructEnd,
             });
-    var parser = Parser{ .reader = std.Io.Reader.fixed(data) };
+    var parser = Parser.init( std.Io.Reader.fixed(data) );
     const animal = try Animal.read(&parser);
     try std.testing.expectEqual(20, animal.number_of_fish);
 }
@@ -414,7 +408,7 @@ test "Animal.read - unknown field skipped and latest wins" {
                 .StructEnd,
             });
     
-    var parser = Parser{ .reader = std.Io.Reader.fixed(data) };
+    var parser = Parser.init( std.Io.Reader.fixed(data) );
     const animal = try Animal.read(&parser);
     try std.testing.expectEqual(@as(i16, 2), animal.number_of_fish);
 }
@@ -431,7 +425,7 @@ test "Sock.write" {
     const sock = Sock{.sock_type = .LEFT, .pattern = 42};
     try sock.write(&writer);
 
-    var parser = Parser{ .reader = std.Io.Reader.fixed(writer.writer.buffered()) };
+    var parser = Parser.init( std.Io.Reader.fixed(writer.writer.buffered()) );
     const sock_read = try Sock.read(&parser);
     try std.testing.expectEqual(sock.sock_type, sock_read.sock_type);
     try std.testing.expectEqual(sock.pattern, sock_read.pattern);
@@ -447,9 +441,10 @@ test "Animal.write" {
 
 
     const animal = Animal{.age_of_dog = 42};
+    std.debug.print("writer is: {any}\n", .{writer});
     try animal.write(&writer);
 
-    var parser = Parser{ .reader = std.Io.Reader.fixed(writer.writer.buffered()) };
+    var parser = Parser.init( std.Io.Reader.fixed(writer.writer.buffered()) );
     const animal_read = try Animal.read(&parser);
     try std.testing.expectEqual(animal.age_of_dog, animal_read.age_of_dog);
 }
@@ -497,7 +492,7 @@ test "ComplexPerson.read" {
     var writer = Writer.init(.fixed(&buf));
     try person.write(&writer);
 
-    var parser = Parser{ .reader = std.Io.Reader.fixed(writer.writer.buffered()) };
+    var parser = Parser.init( std.Io.Reader.fixed(writer.writer.buffered()) );
         const person_read = try ComplexPerson.read(&parser, alloc);
     // defer {
     //     std.testing.allocator.free(person_read.userName);
