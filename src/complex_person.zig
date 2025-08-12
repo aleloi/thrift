@@ -61,12 +61,18 @@ pub const Animal = union(enum) {
         try w.write(.StructBegin);
         switch (self.*) {
             .age_of_dog => |age| {
-                try w.write(.{.FieldBegin = .{.tp = .I16, .fid = @intFromEnum(FieldTag.age_of_dog)}});
-                try w.write(.{.I16 = age});
+                try w.writeMany(&[_]Writer.ApiCall{
+                    .{.FieldBegin = .{.tp = .I16, .fid = @intFromEnum(FieldTag.age_of_dog)}},
+                    .{.I16 = age},
+                    .FieldEnd});
             },
             .number_of_fish => |n| {
-                try w.write(.{.FieldBegin = .{.tp = .I16, .fid = @intFromEnum(FieldTag.number_of_fish)}});
-                try w.write(.{.I16 = n});
+                try w.writeMany(&[_]Writer.ApiCall{
+                    .{.FieldBegin = .{.tp = .I16, .fid = @intFromEnum(FieldTag.number_of_fish)}},
+                    .{.I16 = n},
+                    .FieldEnd
+                });
+
             },
         }
         try w.write(.FieldStop);
@@ -137,13 +143,16 @@ pub const Sock = struct {
     }
 
     pub fn write(self: *const Sock, w: *Writer) Writer.WriterError!void {
-        try w.write(.StructBegin);
-        try w.write(.{.FieldBegin = .{.tp = .I32, .fid = @intFromEnum(FieldTag.sock_type)}});
-        try w.write(.{.I32 = @intFromEnum(self.sock_type)});
-        try w.write(.{.FieldBegin = .{.tp = .I16, .fid = @intFromEnum(FieldTag.pattern)}});
-        try w.write(.{.I16 = self.pattern});
-        try w.write(.FieldStop);
-        try w.write(.StructEnd);
+        try w.writeMany(&[_] Writer.ApiCall{
+            .StructBegin,
+                .{.FieldBegin = .{.tp = .I32, .fid = @intFromEnum(FieldTag.sock_type)}},
+                    .{.I32 = @intFromEnum(self.sock_type)},
+                    .FieldEnd,
+                .{.FieldBegin = .{.tp = .I16, .fid = @intFromEnum(FieldTag.pattern)}},
+                    .{.I16 = self.pattern},
+                    .FieldEnd,
+                .FieldStop,
+            .StructEnd});
     }
 };
 
@@ -165,17 +174,23 @@ pub const ComplexPerson = struct {
     };
 
     pub fn write(self: *const ComplexPerson, w: *Writer) Writer.WriterError!void {
-        try w.write(.StructBegin);
-        try w.write(.{.FieldBegin = .{.tp = .BINARY, .fid = @intFromEnum(FieldTag.userName)}});
-        try w.write(.{.Binary = self.userName});
-        try w.write(.{.FieldBegin = .{.tp = .I64, .fid = @intFromEnum(FieldTag.favoriteNumber)}});
-        try w.write(.{.I64 = self.favoriteNumber});
-        try w.write(.{.FieldBegin = .{.tp = .LIST, .fid = @intFromEnum(FieldTag.interests)}});
-        try w.write(.{.ListBegin = .{.elem_type = .BINARY, .size = @intCast(self.interests.items.len)}});
+        try w.writeMany(&[_] Writer.ApiCall{
+            .StructBegin,
+                .{.FieldBegin = .{.tp = .BINARY, .fid = @intFromEnum(FieldTag.userName)}},
+                    .{.Binary = self.userName},
+                    .FieldEnd,
+                .{.FieldBegin = .{.tp = .I64, .fid = @intFromEnum(FieldTag.favoriteNumber)}},
+                    .{.I64 = self.favoriteNumber},
+                    .FieldEnd,
+                .{.FieldBegin = .{.tp = .LIST, .fid = @intFromEnum(FieldTag.interests)}},
+                    .{.ListBegin = .{.elem_type = .BINARY, .size = @intCast(self.interests.items.len)}},
+
+        });
         for (self.interests.items) |item| {
             try w.write(.{.Binary = item});
         }
         try w.write(.ListEnd);
+        try w.write(.FieldEnd);
         std.debug.print("\nSTARTING pets field HERE\n", .{});
         try w.write(.{.FieldBegin = .{.tp = .LIST, .fid = @intFromEnum(FieldTag.pets)}});
         
@@ -204,6 +219,7 @@ pub const ComplexPerson = struct {
             try item.write(w);
         }
         try w.write(.ListEnd);
+        try w.write(.FieldEnd);
         std.debug.print("pets ENDED HERE\n\n", .{}); 
         try w.write(.{.FieldBegin = .{.tp = .LIST, .fid = @intFromEnum(FieldTag.socks)}});
         try w.write(.{.ListBegin = .{.elem_type = .STRUCT, .size = @intCast(self.socks.items.len)}});
@@ -211,6 +227,7 @@ pub const ComplexPerson = struct {
             try item.write(w);
         }
         try w.write(.ListEnd);
+        try w.write(.FieldEnd);
         try w.write(.FieldStop);
         try w.write(.StructEnd);
     }
@@ -316,7 +333,12 @@ pub const ComplexPerson = struct {
 };
 
 fn writeManyToBuffer(buf: []u8, calls: []const Writer.ApiCall) Writer.WriterError![]const u8 {
-    var tw = Writer{.writer=.fixed(buf)};
+    //var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    //defer arena.deinit();
+
+    var tw = Writer.init(.fixed(buf));
+    //.alloc = arena.allocator()
+    
     try tw.writeMany(calls);
     return tw.writer.buffered();
 }
@@ -328,6 +350,7 @@ test "Animal.read - age_of_dog" {
                 .StructBegin,
                 .{.FieldBegin = .{.tp=.I16, .fid=1} },
                 .{.I16 = 42},
+                .FieldEnd,
                 .FieldStop,
                 .StructEnd,
             });
@@ -344,6 +367,7 @@ test "Animal.read - number_of_fish" {
                 .StructBegin,
                 .{.FieldBegin = .{.tp=.I16, .fid=2} },
                 .{.I16 = 100},
+                .FieldEnd,
                 .FieldStop,
                 .StructEnd,
             });
@@ -359,8 +383,10 @@ test "Animal.read - latest wins" {
                 .StructBegin,
                     .{.FieldBegin = .{.tp=.I16, .fid=1} },
                         .{.I16 = 10},
+                        .FieldEnd,
                     .{.FieldBegin = .{.tp=.I16, .fid=2} },
                         .{.I16 = 20},
+                        .FieldEnd,
                     .FieldStop,
                 .StructEnd,
             });
@@ -377,10 +403,13 @@ test "Animal.read - unknown field skipped and latest wins" {
                 .StructBegin,
                     .{.FieldBegin = .{.tp=.I16, .fid=1} },
                         .{.I16 = 1},
+                        .FieldEnd,
                     .{.FieldBegin = .{.tp=.I16, .fid=99} },
                         .{.I16 = 500},
+                        .FieldEnd,
                     .{.FieldBegin = .{.tp=.I16, .fid=2} },
                         .{.I16 = 2},
+                        .FieldEnd,
                     .FieldStop,
                 .StructEnd,
             });
@@ -391,9 +420,13 @@ test "Animal.read - unknown field skipped and latest wins" {
 }
 
 test "Sock.write" {
+    //var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    //defer arena.deinit();
+
     var buf: [255]u8 = undefined;
     //var fbs = std.io.fixedBufferStream(&buf);
-    var writer = Writer{.writer = .fixed(&buf)};
+    var writer = Writer.init(.fixed(&buf));
+        
 
     const sock = Sock{.sock_type = .LEFT, .pattern = 42};
     try sock.write(&writer);
@@ -405,9 +438,13 @@ test "Sock.write" {
 }
 
 test "Animal.write" {
+    //var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    //defer arena.deinit();
+
     var buf: [255]u8 = undefined;
     //var fbs = std.io.fixedBufferStream(&buf);
-    var writer = Writer{.writer = .fixed(&buf)};
+    var writer = Writer.init(.fixed(&buf));
+
 
     const animal = Animal{.age_of_dog = 42};
     try animal.write(&writer);
@@ -418,7 +455,7 @@ test "Animal.write" {
 }
 
 test "ComplexPerson.read" {
-    if (true) return error.SkipZigTest;
+    //if (true) return error.SkipZigTest;
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     const alloc = arena.allocator();
     defer arena.deinit();
@@ -457,7 +494,7 @@ test "ComplexPerson.read" {
 
     var buf: [1024]u8 = undefined;
     //var fbs = std.io.fixedBufferStream(&buf);
-    var writer = Writer{.writer = .fixed(&buf)};
+    var writer = Writer.init(.fixed(&buf));
     try person.write(&writer);
 
     var parser = Parser{ .reader = std.Io.Reader.fixed(writer.writer.buffered()) };
