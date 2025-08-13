@@ -11,6 +11,11 @@ fn readFieldOrStop(p: *Parser) ParseError!?Parser.FieldMeta {
     return field;
 }
 
+/// union Animal {
+///   1: i16 age_of_dog,
+///   2: i16 number_of_fish
+/// }
+/// unions don't neet IsSet structs. Parsing state is handled by the current union value.
 pub const Animal = union(enum) {
     age_of_dog: i16,
     number_of_fish: i16,
@@ -28,6 +33,7 @@ pub const Animal = union(enum) {
         return animal orelse ParseError.CantParseUnion;
     }
 
+    // Every struct or union has a FieldTag construct with the original field tags.
     const FieldTag = enum (i16) {
         age_of_dog = 1,
         number_of_fish = 2,
@@ -35,6 +41,7 @@ pub const Animal = union(enum) {
         _
     };
 
+    /// Field tags are used in switch statements both in reading and writing functions.
     fn readAnimalField(p: *Parser, field: Parser.FieldMeta) Parser.ParseError!?Animal {
         sw: switch (@as(FieldTag, @enumFromInt(field.fid))) {
             .age_of_dog => {
@@ -79,7 +86,10 @@ pub const Animal = union(enum) {
 };
 
 
-
+/// struct Sock {
+///   1: required SockType sock_type,
+///   2: required i16 pattern
+/// }
 pub const Sock = struct {
     sock_type: SockType,
     pattern: i16,
@@ -107,7 +117,7 @@ pub const Sock = struct {
         }
         try p.readStructEnd();
 
-        // Validation
+        // Validation, maybe move to a seperate function in code gen?
         if (isset.sock_type and isset.pattern) {
             return sock;
         } else {
@@ -140,6 +150,7 @@ pub const Sock = struct {
         }
     }
 
+    /// Both fields are required and primitive (enums are i32 in thrift). Hence no sub calls.
     pub fn write(self: *const Sock, w: *Writer) Writer.WriterError!void {
         try w.writeMany(&[_] Writer.ApiCall{
             .StructBegin,
@@ -154,6 +165,15 @@ pub const Sock = struct {
     }
 };
 
+/// struct Person {
+///   1: required string userName,
+///   2: optional i64 favoriteNumber,
+///   3: optional list<string> interests,
+///   4: optional list<Animal> pets,
+///   5: optional list<Sock> socks,
+///   6: optional i64 field_thats_going_to_not_be_included,
+/// }
+/// This is actually wrong
 pub const ComplexPerson = struct {
     userName: []const u8,
     favoriteNumber: i64,
@@ -330,7 +350,8 @@ fn writeManyToBuffer(buf: []u8, calls: []const Writer.ApiCall) Writer.WriterErro
     //var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     //defer arena.deinit();
 
-    var tw = Writer.init(.fixed(buf));
+    var tw: Writer = undefined;
+    tw.init(.fixed(buf));
     //.alloc = arena.allocator()
     
     try tw.writeMany(calls);
@@ -349,7 +370,8 @@ test "Animal.read - age_of_dog" {
                 .StructEnd,
             });
 
-    var parser = Parser.init( std.Io.Reader.fixed(data) );
+    var parser: Parser = undefined;
+    parser.init( std.Io.Reader.fixed(data) );
     const animal = try Animal.read(&parser);
     try std.testing.expectEqual(@as(i16, 42), animal.age_of_dog);
 }
@@ -365,7 +387,8 @@ test "Animal.read - number_of_fish" {
                 .FieldStop,
                 .StructEnd,
             });
-    var parser = Parser.init( std.Io.Reader.fixed(data) );
+    var parser: Parser = undefined;
+    parser.init( std.Io.Reader.fixed(data) );
     const animal = try Animal.read(&parser);
     try std.testing.expectEqual(@as(i16, 100), animal.number_of_fish);
 }
@@ -384,7 +407,8 @@ test "Animal.read - latest wins" {
                     .FieldStop,
                 .StructEnd,
             });
-    var parser = Parser.init( std.Io.Reader.fixed(data) );
+    var parser: Parser = undefined;
+    parser.init( std.Io.Reader.fixed(data) );
     const animal = try Animal.read(&parser);
     try std.testing.expectEqual(20, animal.number_of_fish);
 }
@@ -408,7 +432,8 @@ test "Animal.read - unknown field skipped and latest wins" {
                 .StructEnd,
             });
     
-    var parser = Parser.init( std.Io.Reader.fixed(data) );
+    var parser: Parser = undefined;
+    parser.init( std.Io.Reader.fixed(data) );
     const animal = try Animal.read(&parser);
     try std.testing.expectEqual(@as(i16, 2), animal.number_of_fish);
 }
@@ -419,32 +444,31 @@ test "Sock.write" {
 
     var buf: [255]u8 = undefined;
     //var fbs = std.io.fixedBufferStream(&buf);
-    var writer = Writer.init(.fixed(&buf));
+    var writer: Writer = undefined;
+    writer.init(.fixed(&buf));
         
 
     const sock = Sock{.sock_type = .LEFT, .pattern = 42};
     try sock.write(&writer);
 
-    var parser = Parser.init( std.Io.Reader.fixed(writer.writer.buffered()) );
+    var parser: Parser = undefined;
+    parser.init( std.Io.Reader.fixed(writer.writer.buffered()) );
     const sock_read = try Sock.read(&parser);
     try std.testing.expectEqual(sock.sock_type, sock_read.sock_type);
     try std.testing.expectEqual(sock.pattern, sock_read.pattern);
 }
 
 test "Animal.write" {
-    //var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    //defer arena.deinit();
-
     var buf: [255]u8 = undefined;
-    //var fbs = std.io.fixedBufferStream(&buf);
-    var writer = Writer.init(.fixed(&buf));
+    var writer: Writer = undefined;
+    writer.init(.fixed(&buf));
 
 
     const animal = Animal{.age_of_dog = 42};
-    std.debug.print("writer is: {any}\n", .{writer});
     try animal.write(&writer);
 
-    var parser = Parser.init( std.Io.Reader.fixed(writer.writer.buffered()) );
+    var parser: Parser = undefined;
+    parser.init( std.Io.Reader.fixed(writer.writer.buffered()) );
     const animal_read = try Animal.read(&parser);
     try std.testing.expectEqual(animal.age_of_dog, animal_read.age_of_dog);
 }
@@ -489,11 +513,13 @@ test "ComplexPerson.read" {
 
     var buf: [1024]u8 = undefined;
     //var fbs = std.io.fixedBufferStream(&buf);
-    var writer = Writer.init(.fixed(&buf));
+    var writer: Writer = undefined;
+    writer.init(.fixed(&buf));
     try person.write(&writer);
 
-    var parser = Parser.init( std.Io.Reader.fixed(writer.writer.buffered()) );
-        const person_read = try ComplexPerson.read(&parser, alloc);
+    var parser: Parser = undefined;
+    parser.init( std.Io.Reader.fixed(writer.writer.buffered()) );
+    const person_read = try ComplexPerson.read(&parser, alloc);
     // defer {
     //     std.testing.allocator.free(person_read.userName);
     //     for (person_read.interests.items) |item| {

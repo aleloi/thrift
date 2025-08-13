@@ -1,8 +1,6 @@
 const std = @import("std");
-//const State = enum { CLEAR, FIELD_READ, VALUE_READ };
 
 const check_states: bool = @import("builtin").mode == .Debug;
-
 
 const State = enum {
     CLEAR ,
@@ -37,27 +35,22 @@ bool_value: bool = false,
 // nesting to 64.
 // The arrays are dependent of the buffers, and need to be initialized
 _last_fid_buf: [64]i16 = undefined,
-last_fids: std.ArrayListUnmanaged(i16),
+last_fids: std.ArrayListUnmanaged(i16) = .{},
 _struct_states_buf: [if (check_states) 64 else 0]State = undefined,
 _container_states_buf: [if (check_states) 64 else 0]State = undefined,
-struct_states: std.ArrayListUnmanaged(State),
-container_states: std.ArrayListUnmanaged(State),
+struct_states: std.ArrayListUnmanaged(State) = .{},
+container_states: std.ArrayListUnmanaged(State) = .{},
 
 
 reader: std.Io.Reader,
 
-pub fn init(r: std.Io.Reader) Self {
-    var self = Self { 
-        .reader = r,
-        .last_fids = .{},
-        .struct_states = .{},
-        .container_states = .{}
-    };
-
+pub fn init(self: *Self, r: std.Io.Reader) void {
+    self.* = .{.reader=r};
     self.last_fids = std.ArrayListUnmanaged(i16).initBuffer(&self._last_fid_buf);
-    self.struct_states = std.ArrayListUnmanaged(State).initBuffer(&self._struct_states_buf);
-    self.container_states = std.ArrayListUnmanaged(State).initBuffer(&self._container_states_buf);
-    return self;
+    if (check_states) {
+        self.struct_states = std.ArrayListUnmanaged(State).initBuffer(&self._struct_states_buf);
+        self.container_states = std.ArrayListUnmanaged(State).initBuffer(&self._container_states_buf);
+    }
 }
 
 pub const ParseError = std.Io.Reader.Error ||
@@ -334,7 +327,8 @@ test "fuzz TCompactProtocol" {
             defer arena.deinit();
             const allocator = arena.allocator();
 
-            var parser = Self.init( std.Io.Reader.fixed(input[2..]) );
+            var parser: Self = undefined;
+            parser.init( std.Io.Reader.fixed(input[2..]) );
 
             var instructions: [4]u4 = undefined;
             for (&instructions, 0..) |*ip, i| {
@@ -351,19 +345,21 @@ test "fuzz TCompactProtocol" {
 
 test "readVarint" {
     var data = [_]u8{0x01};
-    var parser = Self.init( std.Io.Reader.fixed(&data) );
+    var parser: Self = undefined;
+    parser.init( std.Io.Reader.fixed(&data) );
     parser.state = .VALUE_READ;
     try std.testing.expectEqual(@as(u64, 1), try parser.readVarint(u64));
 
     var data2 = [_]u8{ 0x81, 0x01 };
-    parser = Self.init( std.Io.Reader.fixed(&data2) );
+    parser.init( std.Io.Reader.fixed(&data2) );
     parser.state = .VALUE_READ;
     try std.testing.expectEqual(@as(u64, 129), try parser.readVarint(u64));
 }
 
 test "readBinary" {
     var data = [_]u8{ 0x03, 'f', 'o', 'o' };
-    var parser = Self.init( std.Io.Reader.fixed(&data) );
+    var parser: Self = undefined;
+    parser.init( std.Io.Reader.fixed(&data) );
     parser.state = .VALUE_READ;
     const alloc = std.testing.allocator;
     const str = try parser.readBinary(alloc);
@@ -374,7 +370,8 @@ test "readBinary" {
 test "readListBegin small" {
     // list<string> size 3
     var data = [_]u8{0x38};
-    var parser = Self.init( std.Io.Reader.fixed(&data) );
+    var parser: Self = undefined;
+    parser.init( std.Io.Reader.fixed(&data) );
     parser.state = .VALUE_READ;
     const res = try parser.readListBegin();
     try std.testing.expectEqual(res.type, Type.BINARY);
@@ -384,7 +381,8 @@ test "readListBegin small" {
 test "readListBegin large" {
     // list<i64> size 20
     var data = [_]u8{ 0xf6, 0x14 };
-    var parser = Self.init( std.Io.Reader.fixed(&data) );
+    var parser: Self = undefined;
+    parser.init( std.Io.Reader.fixed(&data) );
     parser.state = .VALUE_READ;
 
     const res = try parser.readListBegin();
@@ -402,7 +400,8 @@ test "readI64" {
         0x09,
         0x00,
     };
-    var parser = Self.init( std.Io.Reader.fixed(data) );
+    var parser: Self = undefined;
+    parser.init( std.Io.Reader.fixed(data) );
     try parser.readStructBegin();
     const field = try parser.readFieldBegin();
     try std.testing.expectEqual(field.fid, 1);
@@ -412,8 +411,3 @@ test "readI64" {
     try parser.readFieldEnd();
     try parser.readStructEnd();
 }
-
-
-// test "fail" {
-//     std.debug.assert(false);
-// }

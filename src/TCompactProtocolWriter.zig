@@ -34,26 +34,20 @@ state: State = .CLEAR,
 // nesting to 64.
 // The arrays are dependent of the buffers, and need to be initialized
 _last_fid_buf: [64]i16 = undefined,
-last_fids: std.ArrayListUnmanaged(i16),
+last_fids: std.ArrayListUnmanaged(i16) = .{},
 _struct_states_buf: [if (check_states) 64 else 0]State = undefined,
 _container_states_buf: [if (check_states) 64 else 0]State = undefined,
-struct_states: std.ArrayListUnmanaged(State),
-container_states: std.ArrayListUnmanaged(State),
+struct_states: std.ArrayListUnmanaged(State) = .{},
+container_states: std.ArrayListUnmanaged(State) = .{},
 
-pub fn init(w: std.Io.Writer) Self {
-    var self = Self { 
-        .writer = w,
-        .last_fids = .{},
-        .struct_states = .{},
-        .container_states = .{}
-    };
-
+pub fn init(self: *Self, w: std.Io.Writer) void {
+    self.* = .{.writer=w};
     self.last_fids = std.ArrayListUnmanaged(i16).initBuffer(&self._last_fid_buf);
-    self.struct_states = std.ArrayListUnmanaged(State).initBuffer(&self._struct_states_buf);
-    self.container_states = std.ArrayListUnmanaged(State).initBuffer(&self._container_states_buf);
-    return self;
+    if (check_states) {
+        self.struct_states = std.ArrayListUnmanaged(State).initBuffer(&self._struct_states_buf);
+        self.container_states = std.ArrayListUnmanaged(State).initBuffer(&self._container_states_buf);
+    }
 }
-
 
 pub const WriterError = std.Io.Writer.Error || error {InvalidState, Overflow, OutOfMemory, NotImplemented};
 
@@ -103,11 +97,7 @@ pub fn write(self: *Self, api_call: ApiCall) WriterError!void {
     switch (api_call) {
         .StructBegin => {
             try self.last_fids.appendBounded(self.last_fid);
-            std.debug.print("check states is: {}\n", .{check_states});
-            std.debug.print("builtin is: {any}\n", .{@import("builtin")});
-            std.debug.print("builtin mode is: {any}\n", .{@import("builtin").mode});
             if (check_states) try self.struct_states.appendBounded(self.state);
-            //try self.structs.append(.{.state = self.state, .fid = self.last_fid});
             try self.state.transition(
                 States.initMany(&[_]State{.CLEAR, .CONTAINER_WRITE, .VALUE_WRITE}),
                 .FIELD_WRITE);
@@ -206,7 +196,8 @@ test "api functions" {
     //const alloc = arena.allocator();
     var buf: [255]u8 = undefined;
     //var fbs = ;
-    var tw = Self.init(.fixed(&buf));
+    var tw: Self = undefined;
+    tw.init(.fixed(&buf));
     
 
     // Test struct with some fields
