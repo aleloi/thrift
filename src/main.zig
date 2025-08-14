@@ -1,5 +1,6 @@
 const std = @import("std");
-const Parser = @import("TCompactProtocolReader.zig");
+const TCompactProtocol = @import("TCompactProtocol.zig");
+const Parser = TCompactProtocol.Reader;
 //const Writer = @import("TCompactProtocolWriter.zig");
 const ComplexPersonModule = @import("complex_person.zig");
 

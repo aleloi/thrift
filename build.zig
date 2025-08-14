@@ -30,8 +30,7 @@ pub fn build(b: *std.Build) void {
     const test_files: []const [] const u8 = &.{
         "src/complex_person.zig",
         "src/main.zig",
-        "src/TCompactProtocolReader.zig",
-        "src/TCompactProtocolWriter.zig"
+        "src/TCompactProtocol.zig",
         };
     for (test_files) |test_file| {
         const test_set = b.addTest(.{

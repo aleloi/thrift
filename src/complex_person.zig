@@ -1,6 +1,7 @@
 const std = @import("std");
-const Parser = @import("TCompactProtocolReader.zig");
-const Writer = @import("TCompactProtocolWriter.zig");
+const TCompactProtocol = @import("TCompactProtocol.zig");
+const Parser = TCompactProtocol.Reader;
+const Writer = TCompactProtocol.Writer;
 const ParseError = Parser.ParseError;
 
 pub const SockType = enum(i32) { LEFT = 0, RIGHT = 1, _ };
