@@ -2,50 +2,133 @@ const std = @import("std");
 
 const check_states: bool = @import("builtin").mode == .Debug;
 
-fn Stacks(StateT: type) type {
-    return  struct {
-        _last_fid_buf: [64]i16 = undefined,
-        last_fids: std.ArrayListUnmanaged(i16) = .{},
-        _struct_states_buf: [if (check_states) 64 else 0]StateT = undefined,
-        _container_states_buf: [if (check_states) 64 else 0]StateT = undefined,
-        struct_states: std.ArrayListUnmanaged(StateT) = .{},
-        container_states: std.ArrayListUnmanaged(StateT) = .{},
+const State = enum {
+    CLEAR,
+    FIELD,
+    VALUE,
+    CONTAINER,
+    BOOL,
+    DUMMY_STATE, // not a real state
 
-        pub fn init(self: *@This()) void {
-            self.last_fids = std.ArrayListUnmanaged(i16).initBuffer(&self._last_fid_buf);
-            if (check_states) {
-                self.struct_states = std.ArrayListUnmanaged(StateT).initBuffer(&self._struct_states_buf);
-                self.container_states = std.ArrayListUnmanaged(StateT).initBuffer(&self._container_states_buf);
+    pub fn transition(self: *State, comptime mask: States, new_state: State) error{InvalidState}!void {
+        if (check_states) {
+            try self.check(mask);
+            self.* = new_state;
+        }
+    }
+    pub fn check(self: *State, comptime mask: States) error{InvalidState}!void {
+        if (check_states) {
+            if (!mask.contains(self.*)) {
+                return error.InvalidState;
             }
         }
-    };
-}
+    }
+};
+const States = std.EnumSet(State);
+
+const Stacks = struct {
+    _last_fid_buf: [64]i16 = undefined,
+    last_fids: std.ArrayListUnmanaged(i16) = .{},
+    _struct_states_buf: [if (check_states) 64 else 0]State = undefined,
+    _container_states_buf: [if (check_states) 64 else 0]State = undefined,
+    struct_states: std.ArrayListUnmanaged(State) = .{},
+    container_states: std.ArrayListUnmanaged(State) = .{},
+
+    pub fn init(self: *@This()) void {
+        self.last_fids = std.ArrayListUnmanaged(i16).initBuffer(&self._last_fid_buf);
+        if (check_states) {
+            self.struct_states = std.ArrayListUnmanaged(State).initBuffer(&self._struct_states_buf);
+            self.container_states = std.ArrayListUnmanaged(State).initBuffer(&self._container_states_buf);
+        }
+    }
+};
+
+/// Logical Thrift types. Check CType.fromTType to see which are supported by the protocol.
+pub const TType = enum {
+    STOP,
+    VOID,
+    BOOL,
+    BYTE,
+    I08, 
+    DOUBLE, 
+    I16,
+    I32,
+    I64,
+    STRING,
+    UTF7,
+    STRUCT,
+    MAP,
+    SET,
+    LIST,
+    UTF8,
+    UTF16,
+};
+
+/// Compact Type - types to bytes on wire.
+const CType = enum(u4) {
+    STOP = 0x00,
+    TRUE = 0x01,
+    FALSE = 0x02,
+    BYTE = 0x03,
+    I16 = 0x04,
+    I32 = 0x05,
+    I64 = 0x06,
+    DOUBLE = 0x07,
+    BINARY = 0x08,
+    LIST = 0x09,
+    SET = 0x0A,
+    MAP = 0x0B,
+    STRUCT = 0x0C,
+    // TODO what if we read 0xd/e/f?
+
+    pub fn fromTType(t: TType) CType {
+        return switch (t) {
+            .STOP, .VOID => unreachable, // We trust the incoming TTypes and they are never .STOP / .VOID
+            .UTF7, .UTF8, .UTF16 => unreachable, // use .STRING in ser/de code
+            .BOOL => .TRUE, // for collection (list)
+            .BYTE, .I08 => .BYTE,
+            .DOUBLE => .DOUBLE,
+            .I16 => .I16, .I32 => .I32, .I64 => .I64,
+            .STRING => .BINARY,
+            .STRUCT => .STRUCT,
+            .MAP => .MAP,
+            .SET => .SET,
+            .LIST => .LIST
+        };
+    }
+    pub fn toTType(t: CType) TType {
+        return switch (t) {
+            .STOP => .STOP, // We don't trust types from wire. They can be anything.
+            .TRUE, .FALSE => .BOOL, // for collection (list)
+            .BYTE => .BYTE,
+            .DOUBLE => .DOUBLE,
+            .I16 => .I16, .I32 => .I32, .I64 => .I64,
+            .BINARY => .STRING,
+            .STRUCT => .STRUCT,
+            .MAP => .MAP,
+            .SET => .SET,
+            .LIST => .LIST
+        };
+    }
+};
+
+pub const ListBeginMeta = struct {
+    elem_type: TType,
+    size: u32,
+};
+
+pub const FieldMeta = struct {
+    fid: i16,
+    tp: TType
+};
+
 pub const Reader = struct {
 
-    const State = enum {
-        CLEAR,
-        FIELD_READ,
-        VALUE_READ,
-        CONTAINER_READ,
-        BOOL_READ,
-        DUMMY_STATE, // not a real state
-
-        pub fn transition(self: *State, comptime mask: States, new_state: State) error{InvalidState}!void {
-            if (check_states) {
-                if (!mask.contains(self.*)) {
-                    return error.InvalidState;
-                }
-                self.* = new_state;
-            }
-        }
-    };
-    const States = std.EnumSet(State);
-
-    state: State = State.CLEAR,
+    state: State = .CLEAR,
     last_fid: i16 = 0,
-    bool_value: bool = false,
+    bool_value: ?bool = null,
 
-    stacks: Stacks(State) = .{},
+    stacks: Stacks = .{},
 
     reader: std.Io.Reader,
 
@@ -58,80 +141,52 @@ pub const Reader = struct {
         std.mem.Allocator.Error ||
         error{ InvalidState, NotImplemented, EndOfStream, CantParseUnion, RequiredFieldMissing };
 
-    pub const Type = enum(u4) {
-        STOP = 0x00,
-        TRUE = 0x01,
-        FALSE = 0x02,
-        BYTE = 0x03,
-        I16 = 0x04,
-        I32 = 0x05,
-        I64 = 0x06,
-        DOUBLE = 0x07,
-        BINARY = 0x08,
-        LIST = 0x09,
-        SET = 0x0A,
-        MAP = 0x0B,
-        STRUCT = 0x0C,
-    };
+
 
     pub fn readStructBegin(self: *Reader) ParseError!void {
         const old_state = self.state;
-        try self.state.transition(States.initMany(&[_]State{.CLEAR,
-            .CONTAINER_READ, .VALUE_READ
-        }), .FIELD_READ);
+        try self.state.transition(.initMany(&[_]State{.CLEAR,
+            .CONTAINER, .VALUE
+        }), .FIELD);
         try self.stacks.last_fids.appendBounded(self.last_fid);
         if (check_states) try self.stacks.struct_states.appendBounded(old_state);
         self.last_fid = 0;
     }
 
-    pub const FieldMeta = struct {
-        fid: i16,
-        tp: Type
-    };
-
     // The whitepaper and impls in https://github.com/apache/thrift/tree/master/lib and the protocol base class
     // has readFieldBegin also return a field name, but it's always empty for compact protocol.
     pub fn readFieldBegin(self: *Reader) ParseError!FieldMeta {
-        try self.state.transition(States.initOne(.FIELD_READ), .FIELD_READ);
+        try self.state.check(.initOne(.FIELD));
         const byte: u8 = try self.reader.takeByte();
-        if (byte == @intFromEnum(Type.STOP)) {
-            return .{ .fid = 0, .tp = Type.STOP };
-        }
-
         const tp_byte: u8 = byte & 0xF;
-        const tp: Type = switch (tp_byte) {
-            @intFromEnum(Type.TRUE) => Type.TRUE,
-            @intFromEnum(Type.FALSE) => Type.FALSE,
-            else => @enumFromInt(tp_byte),
-        };
-        if (tp == Type.TRUE or tp == Type.FALSE) {
-            self.bool_value = (tp_byte == @intFromEnum(Type.TRUE));
-            try self.state.transition(States.initFull(), .BOOL_READ);
+        const tp: CType = @enumFromInt(tp_byte); 
+
+        if (tp == .STOP) {
+            return .{ .fid = 0, .tp = TType.STOP };
         }
 
         const delta: u8 = byte >> 4;
-        var fid: i16 = undefined;
-        if (delta == 0) {
-            fid = try self.readI16();
+        const fid: i16 = if (delta == 0) try self.readI16() else self.last_fid + delta;
+        self.last_fid = fid;
+
+        if (tp == CType.TRUE or tp == CType.FALSE) {
+            self.bool_value = (tp == .TRUE);
+            try self.state.transition(.initOne(.FIELD), .BOOL);
         } else {
-            fid = self.last_fid + delta;
-            self.last_fid = fid;
+            try self.state.transition(.initOne(.FIELD), .VALUE);
         }
 
-        try self.state.transition(States.initFull(), .VALUE_READ);
-
-        return .{ .fid = fid, .tp = tp };
+        return .{ .fid = fid, .tp = tp.toTType() };
     }
 
     pub fn readFieldEnd(self: *Reader) ParseError!void {
-        try self.state.transition(States.initMany(&[_]State{.VALUE_READ, .BOOL_READ}), 
-        .FIELD_READ);
+        try self.state.transition(.initMany(&[_]State{.VALUE, .BOOL}), 
+        .FIELD);
     }
 
 
     pub fn readBinary(self: *Reader, alloc: std.mem.Allocator) ParseError![]const u8 {
-        try self.state.transition(States.initMany(&[_]State{.VALUE_READ, .CONTAINER_READ}), 
-                self.state);
+        try self.state.check(.initMany(&[_]State{.VALUE, .CONTAINER}));
         const len = try self.readVarint(u64);
         const res = try self.reader.readAlloc(alloc, len);
         std.debug.assert(res.len == len);
@@ -139,8 +194,7 @@ pub const Reader = struct {
     }
 
     fn readVarint(self: *Reader, comptime T: type) ParseError!T {
-        try self.state.transition(States.initMany(&[_]State{.VALUE_READ, .CONTAINER_READ, .FIELD_READ}),
-            self.state);
+        try self.state.check(.initMany(&[_]State{.VALUE, .CONTAINER, .FIELD}));
         var res: T = 0;
         var shift: u8 = 0;
         while (true) {
@@ -175,26 +229,24 @@ pub const Reader = struct {
         return decodeZigZag(i64, v);
     }
 
-    pub fn readListBegin(self: *Reader) ParseError!struct { type: Reader.Type, size: u32 } {
-        try self.state.transition(States.initMany(&[_]State{.VALUE_READ, .CONTAINER_READ}), 
-                self.state);
+    pub fn readListBegin(self: *Reader) ParseError!ListBeginMeta{
+        try self.state.check(.initMany(&[_]State{.VALUE, .CONTAINER}));
         if (check_states) {
             try self.stacks.container_states.appendBounded(self.state);
         }
         const size_type = try self.reader.takeByte();
         var size: u32 = size_type >> 4;
-        const list_type: Type = @enumFromInt(size_type & 0x0f);
+        const list_type: CType = @enumFromInt(size_type & 0x0f);
         if (size == 15) {
             size = try self.readVarint(u32);
         }
-        try self.state.transition(States.initMany(&[_]State{.VALUE_READ, .CONTAINER_READ}), 
-            .CONTAINER_READ);
-        return .{ .type = list_type, .size = size };
+        try self.state.transition(.initMany(&[_]State{.VALUE, .CONTAINER}), 
+            .CONTAINER);
+        return .{ .elem_type = list_type.toTType(), .size = size };
     }
 
     pub fn readListEnd(self: *Reader) ParseError!void {
-        try self.state.transition(States.initMany(&[_]State{.VALUE_READ, .CONTAINER_READ}), 
-            .DUMMY_STATE);
+        try self.state.check(.initMany(&[_]State{.VALUE, .CONTAINER}));
         if (check_states) {
             self.state = self.stacks.container_states.pop().?;
         }
@@ -210,19 +262,24 @@ pub const Reader = struct {
     }
 
     pub fn readBool(self: *Reader) ParseError!bool {
-        // TODO seems to not handle list<bool>
-        try self.state.transition(States.initMany(&[_]State{.BOOL_READ, .CONTAINER_READ}), 
-            self.state);
-        return self.bool_value;
+        if (self.bool_value) |b| {
+            try self.state.check(.initOne(.BOOL));
+            self.bool_value = null;
+            return b;
+        }
+        try self.state.check(.initOne(.CONTAINER));
+        const byte = try self.reader.takeByte();
+        return byte == 1;
     }
 
-    pub fn skip(self: *Reader, field_type: Type) ParseError!void {
-        try self.state.transition(States.initMany(&[_]State{.VALUE_READ, .CONTAINER_READ,
-            .BOOL_READ}), self.state);
+    pub fn skip(self: *Reader, field_type: TType) ParseError!void {
+        try self.state.check(.initMany(&[_]State{.VALUE, .CONTAINER,
+            .BOOL}));
 
         switch (field_type) {
+            // TODO exhaustive
             .STOP => {},
-            .TRUE, .FALSE => {
+            .BOOL => {
                 _ = try self.readBool();
             },
             .BYTE => {
@@ -240,14 +297,14 @@ pub const Reader = struct {
             .I64 => {
                 _ = try self.readI64();
             },
-            .BINARY => {
+            .STRING => {
                 const len = try self.readVarint(u64);
                 try self.skipBytes(len);
             },
             .LIST, .SET => {
                 const list_meta = try self.readListBegin();
                 for (0..list_meta.size) |_| {
-                    try self.skip(list_meta.type);
+                    try self.skip(list_meta.elem_type);
                 }
                 try self.readListEnd();
             },
@@ -263,11 +320,12 @@ pub const Reader = struct {
                 }
                 try self.readStructEnd();
             },
+            else => unreachable,
         }
     }
 
     pub fn readStructEnd(self: *Reader) ParseError!void {
-        try self.state.transition(States.initOne(.FIELD_READ), .DUMMY_STATE);
+        try self.state.check(.initOne(.FIELD));
         if (check_states) self.state = self.stacks.struct_states.pop().?;
         self.last_fid = self.stacks.last_fids.pop().?;
     }
@@ -286,7 +344,7 @@ pub const Reader = struct {
                 _,
             };
 
-                        fn oneInstr(parser: *Reader, alloc: std.mem.Allocator, fn_to_call: ApiFn) !void {
+            fn oneInstr(parser: *Reader, alloc: std.mem.Allocator, fn_to_call: ApiFn) !void {
                 switch (fn_to_call) {
                     .readStructBegin => {
                         _ = try parser.readStructBegin();
@@ -310,7 +368,7 @@ pub const Reader = struct {
                         _ = try parser.readStructEnd();
                     },
                     .skip => {
-                        const types = [_]Type{ .STOP, .BYTE, .DOUBLE, .I16, .I32, .I64, .BINARY, .LIST, .SET, .MAP, .STRUCT };
+                        const types = [_]TType{ .STOP, .BYTE, .DOUBLE, .I16, .I32, .I64, .STRING, .LIST, .SET, .MAP, .STRUCT, .BOOL };
                         for (types) |t| {
                             parser.skip(t) catch {};
                         }
@@ -327,7 +385,7 @@ pub const Reader = struct {
                 defer arena.deinit();
                 const allocator = arena.allocator();
 
-                                var parser: Reader = undefined;
+                var parser: Reader = undefined;
                 parser.init( std.Io.Reader.fixed(input[2..]) );
 
                 var instructions: [4]u4 = undefined;
@@ -345,22 +403,22 @@ pub const Reader = struct {
 
     test "readVarint" {
         var data = [_]u8{0x01};
-                        var parser: Reader = undefined;
+        var parser: Reader = undefined;
         parser.init( std.Io.Reader.fixed(&data) );
-        parser.state = .VALUE_READ;
+        parser.state = .VALUE;
         try std.testing.expectEqual(@as(u64, 1), try parser.readVarint(u64));
 
         var data2 = [_]u8{ 0x81, 0x01 };
         parser.init( std.Io.Reader.fixed(&data2) );
-        parser.state = .VALUE_READ;
+        parser.state = .VALUE;
         try std.testing.expectEqual(@as(u64, 129), try parser.readVarint(u64));
     }
 
     test "readBinary" {
         var data = [_]u8{ 0x03, 'f', 'o', 'o' };
-                        var parser: Reader = undefined;
+        var parser: Reader = undefined;
         parser.init( std.Io.Reader.fixed(&data) );
-        parser.state = .VALUE_READ;
+        parser.state = .VALUE;
         const alloc = std.testing.allocator;
         const str = try parser.readBinary(alloc);
         defer alloc.free(str);
@@ -370,23 +428,23 @@ pub const Reader = struct {
     test "readListBegin small" {
         // list<string> size 3
         var data = [_]u8{0x38};
-                        var parser: Reader = undefined;
+        var parser: Reader = undefined;
         parser.init( std.Io.Reader.fixed(&data) );
-        parser.state = .VALUE_READ;
+        parser.state = .VALUE;
         const res = try parser.readListBegin();
-        try std.testing.expectEqual(res.type, Type.BINARY);
+        try std.testing.expectEqual(res.elem_type, TType.STRING);
         try std.testing.expectEqual(res.size, 3);
     }
 
     test "readListBegin large" {
         // list<i64> size 20
         var data = [_]u8{ 0xf6, 0x14 };
-                        var parser: Reader = undefined;
+        var parser: Reader = undefined;
         parser.init( std.Io.Reader.fixed(&data) );
-        parser.state = .VALUE_READ;
+        parser.state = .VALUE;
 
         const res = try parser.readListBegin();
-        try std.testing.expectEqual(res.type, Type.I64);
+        try std.testing.expectEqual(res.elem_type, TType.I64);
         try std.testing.expectEqual(res.size, 20);
     }
 
@@ -400,53 +458,105 @@ pub const Reader = struct {
             0x09,
             0x00,
         };
-                        var parser: Reader = undefined;
+        var parser: Reader = undefined;
         parser.init( std.Io.Reader.fixed(data) );
         try parser.readStructBegin();
         const field = try parser.readFieldBegin();
         try std.testing.expectEqual(field.fid, 1);
-        try std.testing.expectEqual(field.tp, Type.I64);
+        try std.testing.expectEqual(field.tp, TType.I64);
         const value = try parser.readI64();
         try std.testing.expectEqual(value, 1234567890);
         try parser.readFieldEnd();
         try parser.readStructEnd();
     }
+
+    test "readBools" {
+        const expectEqual = std.testing.expectEqual;
+        
+        // var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+        // const alloc = arena.allocator();
+        // defer arena.deinit();
+
+
+        var buf: [255]u8 = undefined;
+        var writer: Writer = undefined;
+        writer.init(.fixed(&buf));
+        writer.state = .FIELD;
+        try writer.writeMany(&[_]Writer.ApiCall {
+            .{ .FieldBegin = .{ .tp = .BOOL, .fid = 14 } },
+                .{ .Bool = true },
+                .FieldEnd,
+            .{ .FieldBegin = .{ .tp = .BOOL, .fid = 75 } },
+                .{ .Bool = false },
+                .FieldEnd,
+            .{ .FieldBegin = .{ .tp = .I16, .fid = 1 } },
+                .{ .I16 = -5 },
+                .FieldEnd,
+            .{ .FieldBegin = .{ .tp = .LIST, .fid = 100 } },
+                .{ .ListBegin = .{ .elem_type = .BOOL, .size=3 } },
+                    .{ .Bool = true },
+                    .{ .Bool = true },
+                    .{ .Bool = false },
+                .ListEnd,
+                .FieldEnd,
+            .{ .FieldBegin = .{ .tp = .I16, .fid = 10 } },
+                .{ .I16 = 5 },
+        });
+
+        var reader: Reader = undefined;
+        reader.init(.fixed(writer.writer.buffered()));
+        reader.state = .FIELD;
+        const fb1 = try reader.readFieldBegin();
+        try expectEqual(fb1, FieldMeta{ .tp = .BOOL, .fid = 14 });
+
+        const b1 = try reader.readBool();
+        try expectEqual(b1, true);
+        try reader.readFieldEnd();
+
+        const fb2 = try reader.readFieldBegin();
+        try expectEqual(fb2, FieldMeta{ .tp = .BOOL, .fid = 75 });
+        const b2 = try reader.readBool();
+        try expectEqual(b2, false);
+        try reader.readFieldEnd();
+
+        const fb3 = try reader.readFieldBegin();
+        try expectEqual(fb3, FieldMeta{ .tp = .I16, .fid = 1 });
+        const int1 = try reader.readI16();
+        try expectEqual(int1, -5);
+        try reader.readFieldEnd();
+
+        const fb4 = try reader.readFieldBegin();
+        try expectEqual(fb4, FieldMeta{ .tp = .LIST, .fid = 100 });
+        const lm1 = try reader.readListBegin();
+        try expectEqual(lm1, ListBeginMeta{ .elem_type = .BOOL, .size=3 });
+
+        const b3 = try reader.readBool();
+        const b4: bool = try reader.readBool();
+        const b5: bool = try reader.readBool();
+
+        try reader.readListEnd();
+        try reader.readFieldEnd();
+
+        const fb5 = try reader.readFieldBegin();
+        try expectEqual(b3, true);
+        try expectEqual(b4, true);
+        try expectEqual(b5, false);
+        try expectEqual(fb5, FieldMeta { .tp = .I16, .fid = 10 });
+
+        const int2 = try reader.readI16();
+        try expectEqual(int2, 5);
+    }
 };
 
 pub const Writer = struct {
     
-
-    
-    const State = enum {
-        CLEAR,
-        // FIELD_READ,
-        // VALUE_READ,
-        // CONTAINER_READ,
-        // BOOL_READ,
-        FIELD_WRITE,
-        VALUE_WRITE,
-        CONTAINER_WRITE,
-        BOOL_WRITE,
-        DUMMY_STATE, // not a real state
-
-        pub fn transition(self: *State, comptime mask: States, new_state: State) error{InvalidState}!void {
-            if (check_states) {
-                if (!mask.contains(self.*)) {
-                    return error.InvalidState;
-                }
-                self.* = new_state;
-            }
-        }
-    };
-    const States = std.EnumSet(State);
-
     writer: std.Io.Writer,
     last_fid: i16 = 0,
-    bool_fid: i16 = -1,
+    bool_fid: ?i16 = null,
     state: State = .CLEAR,
     //alloc: std.mem.Allocator,
 
-    stacks: Stacks(State) = .{},
+    stacks: Stacks = .{},
 
     pub fn init(self: *Writer, w: std.Io.Writer) void {
         self.* = .{.writer=w};
@@ -477,15 +587,10 @@ pub const Writer = struct {
         }
     }
 
-    pub const ListBeginMeta = struct {
-        elem_type: Reader.Type,
-        size: u32,
-    };
-
     pub const ApiCall = union(enum) {
         StructBegin,
         StructEnd,
-        FieldBegin: Reader.FieldMeta,
+        FieldBegin: FieldMeta,
         FieldEnd,
         FieldStop,
         Binary: []const u8,
@@ -497,29 +602,41 @@ pub const Writer = struct {
         ListEnd,
     };
 
+    fn writeFieldHeader(self: *Writer, field: struct { ctype: CType, fid: i16}) WriterError!void {
+        try self.state.check(.initMany(&[_]State{.BOOL, .VALUE}));
+        const delta = field.fid - self.last_fid;
+        const ctype: u8 = @intFromEnum(field.ctype);
+        if (delta > 0 and delta <= 15) {
+            const delta8: u8 = @intCast(delta);
+            const b: u8 = @as(u8, delta8 << 4) | ctype;
+            try self.writer.writeByte(b);
+        } else {
+            try self.writer.writeByte(ctype);
+            try self.writeVarint(u16, encodeZigZag(i16, field.fid));
+        }
+        self.last_fid = field.fid;
+    }
+
     pub fn write(self: *Writer, api_call: ApiCall) WriterError!void {
         switch (api_call) {
             .StructBegin => {
                 try self.stacks.last_fids.appendBounded(self.last_fid);
                 if (check_states) try self.stacks.struct_states.appendBounded(self.state);
                 try self.state.transition(
-                    States.initMany(&[_]State{.CLEAR, .CONTAINER_WRITE, .VALUE_WRITE}),
-                    .FIELD_WRITE);
+                    .initMany(&[_]State{.CLEAR, .CONTAINER, .VALUE}),
+                    .FIELD);
                 self.last_fid = 0;
             },
             .StructEnd => {
-                try self.state.transition(
-                    States.initMany(&[_]State{.FIELD_WRITE}), 
-                    .DUMMY_STATE);
+                try self.state.check(
+                    .initOne(.FIELD));
                 if (check_states) {
                     self.state = self.stacks.struct_states.pop().?;
                 }
                 self.last_fid = self.stacks.last_fids.pop().?;
             },
             .ListEnd => {
-                try self.state.transition(
-                    States.initOne(.CONTAINER_WRITE), .DUMMY_STATE
-                );
+                try self.state.check(.initOne(.CONTAINER));
                 if (check_states) self.state = self.stacks.container_states.pop().?;
 
             },
@@ -528,32 +645,26 @@ pub const Writer = struct {
                 // These are the Reader type structs, not the writer.
                 // TODO: it's not .FALSE / .TRUE, it's .BOOL (TType.BOOL==2 in python). 
                 // This maybe works because .FALSE == 2. But .TRUE == 1 and TType.VOID == 1??
-                if (field.tp == .FALSE or field.tp == .TRUE) {
-                    return error.NotImplemented;
+                if (field.tp == .BOOL) {
+                    self.bool_fid = field.fid;
+                    try self.state.transition(.initOne(.FIELD), .BOOL);
+                    return;
                 }
                 try self.state.transition(
-                    States.initOne(.FIELD_WRITE), .VALUE_WRITE
+                    .initOne(.FIELD), .VALUE
                 );
-                const delta = field.fid - self.last_fid;
-                if (delta > 0 and delta <= 15) {
-                    const delta8: u8 = @intCast(delta);
-                    const b: u8 = @as(u8, delta8 << 4) | @as(u8, @intFromEnum(field.tp));
-                    try self.writer.writeByte(b);
-                } else {
-                    try self.writer.writeByte(@intFromEnum(field.tp));
-                    try self.writeVarint(u16, encodeZigZag(i16, field.fid));
-                }
-                self.last_fid = field.fid;
+                try self.writeFieldHeader(.{.ctype=CType.fromTType(field.tp), 
+                                        .fid=field.fid});
             },
             .FieldEnd => {
                 try self.state.transition(
-                    States.initMany(&[_]State{.VALUE_WRITE, .BOOL_WRITE}),
-                    .FIELD_WRITE
+                    .initMany(&[_]State{.VALUE, .BOOL}),
+                    .FIELD
                 );
             },
             .FieldStop => {
                 try self.state.transition(
-                    States.initOne(.FIELD_WRITE), .FIELD_WRITE
+                    .initOne(.FIELD), .FIELD
                 );
                 try self.writer.writeByte(0);
                 },
@@ -562,6 +673,15 @@ pub const Writer = struct {
                 try self.writer.writeAll(s);
             },
             .Bool => |b| {
+                if (self.bool_fid) |fid| {
+                    try self.state.check(.initOne(.BOOL));
+                    try self.writeFieldHeader(.{.ctype=(if(b) .TRUE else .FALSE),
+                            .fid=fid
+                    });
+                    self.bool_fid = null;
+                    return;
+                }
+                try self.state.check(.initOne(.CONTAINER));
                 try self.writer.writeByte(if (b) 1 else 0);
             },
             .I16 => |i| {
@@ -576,14 +696,15 @@ pub const Writer = struct {
             .ListBegin => |meta| {
                 if (check_states) try self.stacks.container_states.appendBounded(self.state);
                 try self.state.transition(
-                    States.initMany(&[_]State{.VALUE_WRITE, .CONTAINER_WRITE}),
-                    .CONTAINER_WRITE
+                    .initMany(&[_]State{.VALUE, .CONTAINER}),
+                    .CONTAINER
                 );
+                const ctype: u8 = @intFromEnum(CType.fromTType(meta.elem_type));
                 if (meta.size <= 14) {
                     const size8: u8 = @intCast(meta.size);
-                    try self.writer.writeByte(@as(u8, size8 << 4) | @as(u8, @intFromEnum(meta.elem_type)));
+                    try self.writer.writeByte(@as(u8, size8 << 4) | ctype);
                 } else {
-                    try self.writer.writeByte(@as(u8, 0xf0) | @as(u8, @intFromEnum(meta.elem_type)));
+                    try self.writer.writeByte(0xf0 | ctype);
                     try self.writeVarint(u32, meta.size);
                 }
             },
@@ -609,46 +730,71 @@ pub const Writer = struct {
         // Test struct with some fields
         const struct_calls = [_]ApiCall{
             .StructBegin,
-            .{ .FieldBegin = .{ .tp = .BINARY, .fid = 1 } },
-            .{ .Binary = "hej" },
+              .{ .FieldBegin = .{ .tp = .STRING, .fid = 1 } },
+              .{ .Binary = "hej" },
             .FieldEnd,
-            .{ .FieldBegin = .{ .tp = .I16, .fid = 3 } },
-            .{ .I16 = -123 },
+              .{ .FieldBegin = .{ .tp = .I16, .fid = 3 } },
+              .{ .I16 = -123 },
             .FieldEnd,
             .FieldStop,
         };
         try tw.writeMany(&struct_calls);
 
         const expected_struct_bytes = [_]u8{
-            @as(u8, 1 << 4) | @as(u8, @intFromEnum(Reader.Type.BINARY)),
+            @as(u8, 1 << 4) | @as(u8, @intFromEnum(CType.BINARY)),
             3,
             'h', 'e', 'j',
-            @as(u8, 2 << 4) | @as(u8, @intFromEnum(Reader.Type.I16)),
+            @as(u8, 2 << 4) | @as(u8, @intFromEnum(CType.I16)),
             0xF5,
             0x01,
             0,
         };
         try std.testing.expectEqualSlices(u8, &expected_struct_bytes, tw.writer.buffered());
 
-        // // Test list of bools
-        // tw.writer.end = 0;
-        // tw.last_fid = 0; // reset state
-        // tw.state = .FIELD_WRITE;
-        // const list_calls = [_]ApiCall{
-        //     .{ .ListBegin = .{ .elem_type = .BYTE, .size = 2 } },
-        //     .{ .Bool = true },
-        //     .{ .Bool = false },
-        //     .ListEnd,
-        // };
-        // try tw.writeMany(&list_calls);
+        // Test list of bools
+        tw.writer.end = 0;
+        tw.last_fid = 0; // reset state
+        tw.state = .VALUE;
+        const list_calls = [_]ApiCall{
+            .{ .ListBegin = .{ .elem_type = .BOOL, .size = 2 } },
+            .{ .Bool = true },
+            .{ .Bool = false },
+            .ListEnd,
+        };
+        try tw.writeMany(&list_calls);
 
-        // const expected_list_bytes = [_]u8{
-        //     @as(u8, 2 << 4) | @as(u8, @intFromEnum(Reader.Type.BYTE)),
-        //     1,
-        //     0,
-        // };
+        const expected_list_bytes = [_]u8{
+            @as(u8, 2 << 4) | @as(u8, @intFromEnum(CType.TRUE)),
+            1,
+            0,
+        };
 
-        // try std.testing.expectEqualSlices(u8, &expected_list_bytes, tw.writer.buffered());
+        try std.testing.expectEqualSlices(u8, &expected_list_bytes, tw.writer.buffered());
+
+        // bool fields
+        tw.writer.end = 0;
+        tw.last_fid = 0; // reset state
+        tw.state = .FIELD;
+        const bool_fields_calls = [_]ApiCall{
+            .{ .FieldBegin = .{ .tp = .BOOL, .fid = 14 } },
+                .{ .Bool = true },
+                .FieldEnd,
+            .{ .FieldBegin = .{ .tp = .BOOL, .fid = 75 } },
+                .{ .Bool = false },
+                .FieldEnd,
+        };
+        try tw.writeMany(&bool_fields_calls);
+
+        const expected_delta: u16 = encodeZigZag(i16, 75);
+
+        const expected_bool_fields_bytes = [_]u8{
+            @as(u8, 14 << 4) | @as(u8, @intFromEnum(CType.TRUE)),
+            0 | @as(u8, @intFromEnum(CType.FALSE)),
+            @intCast((expected_delta & 0x7F) | 0x80),
+            @intCast(expected_delta >> 7)
+        };
+
+        try std.testing.expectEqualSlices(u8, &expected_bool_fields_bytes, tw.writer.buffered());
     }
 
     test "writeVarint" {

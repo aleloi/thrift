@@ -3,10 +3,14 @@ const TCompactProtocol = @import("TCompactProtocol.zig");
 const Parser = TCompactProtocol.Reader;
 const Writer = TCompactProtocol.Writer;
 const ParseError = Parser.ParseError;
+const TType = TCompactProtocol.TType;
+const FieldMeta = TCompactProtocol.FieldMeta;
+const ListBeginMeta = TCompactProtocol.ListBeginMeta;
+
 
 pub const SockType = enum(i32) { LEFT = 0, RIGHT = 1, _ };
 
-fn readFieldOrStop(p: *Parser) ParseError!?Parser.FieldMeta {
+fn readFieldOrStop(p: *Parser) ParseError!?FieldMeta {
     const field = try p.readFieldBegin();
     if (field.tp == .STOP) return null;
     return field;
@@ -43,16 +47,16 @@ pub const Animal = union(enum) {
     };
 
     /// Field tags are used in switch statements both in reading and writing functions.
-    fn readAnimalField(p: *Parser, field: Parser.FieldMeta) Parser.ParseError!?Animal {
+    fn readAnimalField(p: *Parser, field: FieldMeta) Parser.ParseError!?Animal {
         sw: switch (@as(FieldTag, @enumFromInt(field.fid))) {
             .age_of_dog => {
-                if (field.tp == Parser.Type.I16) {
+                if (field.tp == TType.I16) {
                     return Animal{ .age_of_dog = try p.readI16() };
                 } 
                 continue :sw .default;
             },
             .number_of_fish => {
-                if (field.tp == Parser.Type.I16) {
+                if (field.tp == TType.I16) {
                     return Animal{ .number_of_fish = try p.readI16() };
                 } 
                 continue :sw .default;
@@ -127,11 +131,11 @@ pub const Sock = struct {
     }
 
     fn readSockField(self: *Sock, p: *Parser, isset: *Isset, 
-                    field: Parser.FieldMeta
+                    field: FieldMeta
     ) ParseError!void {
         sw: switch (@as(FieldTag, @enumFromInt(field.fid))) {
             .sock_type => {
-                if (field.tp == Parser.Type.I32) {
+                if (field.tp == TType.I32) {
                     self.sock_type = @enumFromInt(try p.readI32());
                     isset.sock_type = true;
                     return;
@@ -139,7 +143,7 @@ pub const Sock = struct {
                 continue :sw .default;
             },
             .pattern => {
-                if (field.tp == Parser.Type.I16) {
+                if (field.tp == TType.I16) {
                     self.pattern = try p.readI16();
                     isset.pattern = true;
                     return;
@@ -202,7 +206,7 @@ pub const ComplexPerson = struct {
     pub fn write(self: *const ComplexPerson, w: *Writer) Writer.WriterError!void {
         try w.writeMany(&[_] Writer.ApiCall{
             .StructBegin,
-                .{.FieldBegin = .{.tp = .BINARY, .fid = @intFromEnum(FieldTag.userName)}},
+                .{.FieldBegin = .{.tp = .STRING, .fid = @intFromEnum(FieldTag.userName)}},
                     .{.Binary = self.userName},
                     .FieldEnd
         });
@@ -216,7 +220,7 @@ pub const ComplexPerson = struct {
         if (self.interests) |interests| {
             try w.writeMany(&[_] Writer.ApiCall{
                 .{.FieldBegin = .{.tp = .LIST, .fid = @intFromEnum(FieldTag.interests)}},
-                    .{.ListBegin = .{.elem_type = .BINARY, .size = @intCast(interests.items.len)}}
+                    .{.ListBegin = .{.elem_type = .STRING, .size = @intCast(interests.items.len)}}
                 });
             for (interests.items) |item| {
                 try w.write(.{.Binary = item});
@@ -226,7 +230,7 @@ pub const ComplexPerson = struct {
         }
         if (self.pets) | pets| {
             try w.write(.{.FieldBegin = .{.tp = .LIST, .fid = @intFromEnum(FieldTag.pets)}});
-            const list_meta: Writer.ListBeginMeta = .{.elem_type = .STRUCT, .size = @intCast(pets.items.len)};
+            const list_meta: ListBeginMeta = .{.elem_type = .STRUCT, .size = @intCast(pets.items.len)};
             try w.write(.{.ListBegin = list_meta});
             for (pets.items) |item| {
                 try item.write(w);
@@ -247,10 +251,10 @@ pub const ComplexPerson = struct {
         try w.write(.StructEnd);
     }
 
-    fn readComplexPersonField(person: *ComplexPerson, p: *Parser, isset: *Isset, alloc: std.mem.Allocator, field: Parser.FieldMeta) ParseError!void {
+    fn readComplexPersonField(person: *ComplexPerson, p: *Parser, isset: *Isset, alloc: std.mem.Allocator, field: FieldMeta) ParseError!void {
         sw: switch (@as(FieldTag, @enumFromInt(field.fid))) {
             .userName => {
-                if (field.tp == Parser.Type.BINARY) {
+                if (field.tp == TType.STRING) {
                     person.userName = try p.readBinary(alloc);
                     isset.userName = true;
                     return;
@@ -258,7 +262,7 @@ pub const ComplexPerson = struct {
                 continue :sw .default;
             },
             .favoriteNumber => {
-                if (field.tp == Parser.Type.I64) {
+                if (field.tp == TType.I64) {
                     person.favoriteNumber = try p.readI64();
                     isset.favoriteNumber = true;
                     return;
@@ -266,7 +270,7 @@ pub const ComplexPerson = struct {
                 continue :sw .default;
             },
             .interests => {
-                if (field.tp == Parser.Type.LIST) {
+                if (field.tp == TType.LIST) {
                     const list_meta = try p.readListBegin();
                     // TODO maximal length / byte alloc as the C++ impl
                     person.interests = std.ArrayList([]const u8).init(alloc);
@@ -284,7 +288,7 @@ pub const ComplexPerson = struct {
                 continue :sw .default;
             },
             .pets => {
-                if (field.tp == Parser.Type.LIST) {
+                if (field.tp == TType.LIST) {
                     const list_meta = try p.readListBegin();
                     person.pets = std.ArrayList(Animal).init(alloc);
                     isset.pets = true;
@@ -305,7 +309,7 @@ pub const ComplexPerson = struct {
                 continue :sw .default;
             },
             .socks => {
-                if (field.tp == Parser.Type.LIST) {
+                if (field.tp == TType.LIST) {
                     const list_meta = try p.readListBegin();
                     person.socks = std.ArrayList(Sock).init(alloc);
                     isset.socks = true;
