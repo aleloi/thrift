@@ -132,7 +132,6 @@ pub fn readBinary(self: *Self, alloc: std.mem.Allocator) ParseError![]const u8 {
     try self.state.transition(States.initMany(&[_]State{.VALUE_READ, .CONTAINER_READ}), 
             self.state);
     const len = try self.readVarint(u64);
-    //const buf = try alloc.alloc(u8, len);
     const res = try self.reader.readAlloc(alloc, len);
     std.debug.assert(res.len == len);
     return res;
@@ -230,7 +229,7 @@ pub fn skip(self: *Self, field_type: Type) ParseError!void {
         },
         .DOUBLE => {
             try self.skipBytes(8);
-        }, // 8 bytes for double
+        },
         .I16 => {
             _ = try self.readI16();
         },

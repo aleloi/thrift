@@ -171,15 +171,14 @@ pub const Sock = struct {
 ///   3: optional list<string> interests,
 ///   4: optional list<Animal> pets,
 ///   5: optional list<Sock> socks,
-///   6: optional i64 field_thats_going_to_not_be_included,
 /// }
-/// This is actually wrong
+/// This is wrong; optional fields in thrift should map to optional fields in zig.
 pub const ComplexPerson = struct {
     userName: []const u8,
-    favoriteNumber: i64,
-    interests: std.ArrayList([]const u8),
-    pets: std.ArrayList(Animal),
-    socks: std.ArrayList(Sock),
+    favoriteNumber: ?i64,
+    interests: ?std.ArrayList([]const u8),
+    pets: ?std.ArrayList(Animal),
+    socks: ?std.ArrayList(Sock),
 
     const FieldTag = enum(i16) {
         userName = 1,
@@ -191,154 +190,168 @@ pub const ComplexPerson = struct {
         _,
     };
 
+    const Isset = struct {
+        userName: bool = false,
+        favoriteNumber: bool = false,
+        interests: bool = false,
+        pets: bool = false,
+        socks: bool = false
+    };
+
     pub fn write(self: *const ComplexPerson, w: *Writer) Writer.WriterError!void {
         try w.writeMany(&[_] Writer.ApiCall{
             .StructBegin,
                 .{.FieldBegin = .{.tp = .BINARY, .fid = @intFromEnum(FieldTag.userName)}},
                     .{.Binary = self.userName},
-                    .FieldEnd,
-                .{.FieldBegin = .{.tp = .I64, .fid = @intFromEnum(FieldTag.favoriteNumber)}},
-                    .{.I64 = self.favoriteNumber},
-                    .FieldEnd,
-                .{.FieldBegin = .{.tp = .LIST, .fid = @intFromEnum(FieldTag.interests)}},
-                    .{.ListBegin = .{.elem_type = .BINARY, .size = @intCast(self.interests.items.len)}},
-
+                    .FieldEnd
         });
-        for (self.interests.items) |item| {
-            try w.write(.{.Binary = item});
+        if (self.favoriteNumber) |nr| {
+            try w.writeMany(&[_] Writer.ApiCall{
+                .{.FieldBegin = .{.tp = .I64, .fid = @intFromEnum(FieldTag.favoriteNumber)}},
+                    .{.I64 = nr},
+                    .FieldEnd
+            });
         }
-        try w.write(.ListEnd);
-        try w.write(.FieldEnd);
-        try w.write(.{.FieldBegin = .{.tp = .LIST, .fid = @intFromEnum(FieldTag.pets)}});
-        
-// yes, reading the pets list
-// .{ .type = .STRUCT, .size = 2 }
-// animal field: .{ .fid = 5, .tp = .I16 }
-// Skipping 5: i16
-// animal : nullq
-// animal field: .{ .fid = 7, .tp = .I16 }
-// Skipping 10: i16
-// animal : null
-// Skipping 101: i16
-// Skipping 202: i16
-
-
-    // try person.pets.appendSlice(&[_]Animal{.{
-    //     .age_of_dog = 5
-    // }, .{
-    //     .number_of_fish = 10
-    // }});
-
-        const list_meta: Writer.ListBeginMeta = .{.elem_type = .STRUCT, .size = @intCast(self.pets.items.len)};
-        try w.write(.{.ListBegin = list_meta});
-        for (self.pets.items) |item| {
-            try item.write(w);
+        if (self.interests) |interests| {
+            try w.writeMany(&[_] Writer.ApiCall{
+                .{.FieldBegin = .{.tp = .LIST, .fid = @intFromEnum(FieldTag.interests)}},
+                    .{.ListBegin = .{.elem_type = .BINARY, .size = @intCast(interests.items.len)}}
+                });
+            for (interests.items) |item| {
+                try w.write(.{.Binary = item});
+            }
+            try w.write(.ListEnd);
+            try w.write(.FieldEnd);
         }
-        try w.write(.ListEnd);
-        try w.write(.FieldEnd);
-        try w.write(.{.FieldBegin = .{.tp = .LIST, .fid = @intFromEnum(FieldTag.socks)}});
-        try w.write(.{.ListBegin = .{.elem_type = .STRUCT, .size = @intCast(self.socks.items.len)}});
-        for (self.socks.items) |item| {
-            try item.write(w);
+        if (self.pets) | pets| {
+            try w.write(.{.FieldBegin = .{.tp = .LIST, .fid = @intFromEnum(FieldTag.pets)}});
+            const list_meta: Writer.ListBeginMeta = .{.elem_type = .STRUCT, .size = @intCast(pets.items.len)};
+            try w.write(.{.ListBegin = list_meta});
+            for (pets.items) |item| {
+                try item.write(w);
+            }
+            try w.write(.ListEnd);
+            try w.write(.FieldEnd);
         }
-        try w.write(.ListEnd);
-        try w.write(.FieldEnd);
+        if (self.socks) |socks| {
+            try w.write(.{.FieldBegin = .{.tp = .LIST, .fid = @intFromEnum(FieldTag.socks)}});
+            try w.write(.{.ListBegin = .{.elem_type = .STRUCT, .size = @intCast(socks.items.len)}});
+            for (socks.items) |item| {
+                try item.write(w);
+            }
+            try w.write(.ListEnd);
+            try w.write(.FieldEnd);
+        }
         try w.write(.FieldStop);
         try w.write(.StructEnd);
     }
 
-    pub fn read(p: *Parser, alloc: std.mem.Allocator) !ComplexPerson {
-        var person = ComplexPerson{
-            .userName = undefined,
-            .favoriteNumber = undefined,
-            .interests = std.ArrayList([]const u8).init(alloc),
-            .pets = std.ArrayList(Animal).init(alloc),
-            .socks = std.ArrayList(Sock).init(alloc),
-        };
-        var userName_allocated = false;
-        errdefer {
-            if (userName_allocated) {
-                alloc.free(person.userName);
-            }
-            for (person.interests.items) |item| {
-                alloc.free(item);
-            }
-            person.interests.deinit();
-            person.pets.deinit();
-            person.socks.deinit();
-        }
-
-        try p.readStructBegin();
-        while (try readFieldOrStop(p)) |field| {
-            sw: switch (@as(FieldTag, @enumFromInt(field.fid))) {
-                .userName => {
-                    if (field.tp == Parser.Type.BINARY) {
-                        person.userName = try p.readBinary(alloc);
-                        userName_allocated = true;
-                    } else {
-                        try p.skip(field.tp);
+    fn readComplexPersonField(person: *ComplexPerson, p: *Parser, isset: *Isset, alloc: std.mem.Allocator, field: Parser.FieldMeta) ParseError!void {
+        sw: switch (@as(FieldTag, @enumFromInt(field.fid))) {
+            .userName => {
+                if (field.tp == Parser.Type.BINARY) {
+                    person.userName = try p.readBinary(alloc);
+                    isset.userName = true;
+                    return;
+                } 
+                continue :sw .default;
+            },
+            .favoriteNumber => {
+                if (field.tp == Parser.Type.I64) {
+                    person.favoriteNumber = try p.readI64();
+                    isset.favoriteNumber = true;
+                    return;
+                } 
+                continue :sw .default;
+            },
+            .interests => {
+                if (field.tp == Parser.Type.LIST) {
+                    const list_meta = try p.readListBegin();
+                    // TODO maximal length / byte alloc as the C++ impl
+                    person.interests = std.ArrayList([]const u8).init(alloc);
+                    isset.interests = true;
+                    try person.interests.?.ensureTotalCapacity(list_meta.size);
+                    for (0..list_meta.size) |_| {
+                        const item = try p.readBinary(alloc);
+                        // I guess? if append fails freeing wouldn't happen otherwise.
+                        errdefer alloc.free(item);
+                        try person.interests.?.append(item);
                     }
-                },
-                .favoriteNumber => {
-                    if (field.tp == Parser.Type.I64) {
-                        person.favoriteNumber = try p.readI64();
-                    } else {
-                        try p.skip(field.tp);
-                    }
-                },
-                .interests => {
-                    if (field.tp == Parser.Type.LIST) {
-                        const list_meta = try p.readListBegin();
-                        try person.interests.ensureTotalCapacity(list_meta.size);
-                        for (0..list_meta.size) |_| {
-                            const item = try p.readBinary(alloc);
-                            try person.interests.append(item);
-                        }
-                        try p.readListEnd();
-                    } else {
-                        try p.skip(field.tp);
-                    }
-                },
-                .pets => {
-                    if (field.tp == Parser.Type.LIST) {
-                        const list_meta = try p.readListBegin();
-                        try person.pets.ensureTotalCapacity(list_meta.size);
-                        for (0..list_meta.size) |_| {
-                            //Animal.read(p)
-                            if (Animal.read(p)) |animal| {
-                                try person.pets.append(animal);
-                            } else |err| {
-                                switch (err) {
-                                    ParseError.CantParseUnion, ParseError.RequiredFieldMissing => {},
-                                    else => return err,
-                                }
-                            }
-                        }
-                        try p.readListEnd();
-                    } else {
-                        try p.skip(field.tp);
-                    }
-                },
-                .socks => {
-                    if (field.tp == Parser.Type.LIST) {
-                        const list_meta = try p.readListBegin();
-                        try person.socks.ensureTotalCapacity(list_meta.size);
-                        for (0..list_meta.size) |_| {
-                            if (Sock.read(p)) |sock| {
-                                try person.socks.append(sock);
-                            } else |err| switch (err) {
+                    try p.readListEnd();
+                    return;
+                } 
+                continue :sw .default;
+            },
+            .pets => {
+                if (field.tp == Parser.Type.LIST) {
+                    const list_meta = try p.readListBegin();
+                    person.pets = std.ArrayList(Animal).init(alloc);
+                    isset.pets = true;
+                    try person.pets.?.ensureTotalCapacity(list_meta.size);
+                    for (0..list_meta.size) |_| {
+                        if (Animal.read(p)) |animal| {
+                            try person.pets.?.append(animal);
+                        } else |err| {
+                            switch (err) {
                                 ParseError.CantParseUnion, ParseError.RequiredFieldMissing => {},
                                 else => return err,
                             }
                         }
-                        try p.readListEnd();
-                    } else {
-                        try p.skip(field.tp);
                     }
-                },
-                .default => try p.skip(field.tp),
-                else => continue :sw .default,
+                    try p.readListEnd();
+                    return;
+                } 
+                continue :sw .default;
+            },
+            .socks => {
+                if (field.tp == Parser.Type.LIST) {
+                    const list_meta = try p.readListBegin();
+                    person.socks = std.ArrayList(Sock).init(alloc);
+                    isset.socks = true;
+                    try person.socks.?.ensureTotalCapacity(list_meta.size);
+                    for (0..list_meta.size) |_| {
+                        if (Sock.read(p)) |sock| {
+                            try person.socks.?.append(sock);
+                        } else |err| switch (err) {
+                            ParseError.CantParseUnion, ParseError.RequiredFieldMissing => {},
+                            else => return err,
+                        }
+                    }
+                    try p.readListEnd();
+                    return;
+                } 
+                continue :sw .default;
+            },
+            .default => try p.skip(field.tp),
+            else => continue :sw .default,
+        }
+    }
+
+
+    pub fn read(p: *Parser, alloc: std.mem.Allocator) ParseError!ComplexPerson {
+        var person = ComplexPerson{
+            .userName = undefined,
+            .favoriteNumber = null,
+            .interests = null,
+            .pets = null,
+            .socks = null,
+        };
+        var isset: Isset = .{};
+        errdefer {
+            // TODO: do we care about recursively freeing stuff like 'interests'?
+            if (isset.userName) alloc.free(person.userName);
+            if (isset.interests) {
+                for (person.interests.?.items) |item| {
+                    alloc.free(item);
+                }
+                person.interests.?.deinit();
             }
+            if (isset.pets) person.pets.?.deinit();
+            if (isset.socks) person.socks.?.deinit();
+        }
+        try p.readStructBegin();
+        while (try readFieldOrStop(p)) |field| {
+            try person.readComplexPersonField(p, &isset, alloc, field );
             try p.readFieldEnd();
         }
         try p.readStructEnd();
@@ -494,13 +507,13 @@ test "ComplexPerson.read" {
     //     person.pets.deinit();
     //     person.socks.deinit();
     // }
-    try person.interests.appendSlice(&[_][]const u8{"programming", "music", "travel"});
-    try person.pets.appendSlice(&[_]Animal{.{
+    try person.interests.?.appendSlice(&[_][]const u8{"programming", "music", "travel"});
+    try person.pets.?.appendSlice(&[_]Animal{.{
         .age_of_dog = 5
     }, .{
         .number_of_fish = 10
     }});
-    try person.socks.appendSlice(&[_]Sock{
+    try person.socks.?.appendSlice(&[_]Sock{
         .{
             .sock_type = .LEFT,
             .pattern = 101
@@ -532,12 +545,12 @@ test "ComplexPerson.read" {
 
     try std.testing.expectEqualStrings(person.userName, person_read.userName);
     try std.testing.expectEqual(person.favoriteNumber, person_read.favoriteNumber);
-    try std.testing.expectEqual(person.interests.items.len, person_read.interests.items.len);
-    for (person.interests.items, person_read.interests.items) |item, other| {
+    try std.testing.expectEqual(person.interests.?.items.len, person_read.interests.?.items.len);
+    for (person.interests.?.items, person_read.interests.?.items) |item, other| {
         try std.testing.expectEqualStrings(item, other);
     }
-    try std.testing.expectEqualSlices(Animal, person.pets.items, person_read.pets.items);
-    try std.testing.expectEqualSlices(Sock, person.socks.items, person_read.socks.items);
+    try std.testing.expectEqualSlices(Animal, person.pets.?.items, person_read.pets.?.items);
+    try std.testing.expectEqualSlices(Sock, person.socks.?.items, person_read.socks.?.items);
 
 }
 
