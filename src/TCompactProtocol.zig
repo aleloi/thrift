@@ -79,7 +79,7 @@ const CType = enum(u4) {
     SET = 0x0A,
     MAP = 0x0B,
     STRUCT = 0x0C,
-    // TODO what if we read 0xd/e/f?
+    _, // Covers 0xd..0xf to be able to use @enumFromInt. Invalid values are caught later
 
     pub fn fromTType(t: TType) CType {
         return switch (t) {
@@ -96,7 +96,7 @@ const CType = enum(u4) {
             .LIST => .LIST
         };
     }
-    pub fn toTType(t: CType) TType {
+    pub fn toTType(t: CType) error{InvalidCType} ! TType {
         return switch (t) {
             .STOP => .STOP, // We don't trust types from wire. They can be anything.
             .TRUE, .FALSE => .BOOL, // for collection (list)
@@ -107,7 +107,8 @@ const CType = enum(u4) {
             .STRUCT => .STRUCT,
             .MAP => .MAP,
             .SET => .SET,
-            .LIST => .LIST
+            .LIST => .LIST,
+            else => return error.InvalidCType
         };
     }
 };
@@ -137,13 +138,15 @@ pub const Reader = struct {
         self.stacks.init();
     }
 
-    pub const ParseError = std.Io.Reader.Error ||
-        std.mem.Allocator.Error ||
-        error{ InvalidState, NotImplemented, EndOfStream, CantParseUnion, RequiredFieldMissing };
+    pub const TransportError = error {ReadFailed, EndOfStream}; // TransportError, can't read or EOF
+    pub const TransportStateError = error {InvalidState} || TransportError; // above or using this wrong
+    pub const TransportStateAllocError = error {OutOfMemory} || TransportStateError; // ... or allocation trouble
+    pub const CompactProtocolError = error {InvalidCType} || TransportStateAllocError; // ... or invalid CType u4
 
+    /// Used by layer above the protocol
+    pub const ThriftError = error {CantParseUnion, RequiredFieldMissing}; 
 
-
-    pub fn readStructBegin(self: *Reader) ParseError!void {
+    pub fn readStructBegin(self: *Reader) error {OutOfMemory, InvalidState}!void {
         const old_state = self.state;
         try self.state.transition(.initMany(&[_]State{.CLEAR,
             .CONTAINER, .VALUE
@@ -155,11 +158,11 @@ pub const Reader = struct {
 
     // The whitepaper and impls in https://github.com/apache/thrift/tree/master/lib and the protocol base class
     // has readFieldBegin also return a field name, but it's always empty for compact protocol.
-    pub fn readFieldBegin(self: *Reader) ParseError!FieldMeta {
+    pub fn readFieldBegin(self: *Reader) (error {InvalidCType} || TransportStateError) !FieldMeta {
         try self.state.check(.initOne(.FIELD));
         const byte: u8 = try self.reader.takeByte();
         const tp_byte: u8 = byte & 0xF;
-        const tp: CType = @enumFromInt(tp_byte); 
+        const tp: CType = @enumFromInt(tp_byte); // TODO unsafe!
 
         if (tp == .STOP) {
             return .{ .fid = 0, .tp = TType.STOP };
@@ -176,16 +179,16 @@ pub const Reader = struct {
             try self.state.transition(.initOne(.FIELD), .VALUE);
         }
 
-        return .{ .fid = fid, .tp = tp.toTType() };
+        return .{ .fid = fid, .tp = try tp.toTType() };
     }
 
-    pub fn readFieldEnd(self: *Reader) ParseError!void {
+    pub fn readFieldEnd(self: *Reader) error{InvalidState}!void {
         try self.state.transition(.initMany(&[_]State{.VALUE, .BOOL}), 
         .FIELD);
     }
 
 
-    pub fn readBinary(self: *Reader, alloc: std.mem.Allocator) ParseError![]const u8 {
+    pub fn readBinary(self: *Reader, alloc: std.mem.Allocator) TransportStateAllocError![]const u8 {
         try self.state.check(.initMany(&[_]State{.VALUE, .CONTAINER}));
         const len = try self.readVarint(u64);
         const res = try self.reader.readAlloc(alloc, len);
@@ -193,7 +196,7 @@ pub const Reader = struct {
         return res;
     }
 
-    fn readVarint(self: *Reader, comptime T: type) ParseError!T {
+    fn readVarint(self: *Reader, comptime T: type) TransportStateError!T {
         try self.state.check(.initMany(&[_]State{.VALUE, .CONTAINER, .FIELD}));
         var res: T = 0;
         var shift: u8 = 0;
@@ -214,22 +217,22 @@ pub const Reader = struct {
         return @as(SignedT, @intCast(val >> 1)) ^ sign_mask;
     }
 
-    pub fn readI16(self: *Reader) ParseError!i16 {
+    pub fn readI16(self: *Reader) TransportStateError!i16 {
         const v = try self.readVarint(u16);
         return decodeZigZag(i16, v);
     }
 
-    pub fn readI32(self: *Reader) ParseError!i32 {
+    pub fn readI32(self: *Reader) TransportStateError!i32 {
         const v = try self.readVarint(u32);
-        return decodeZigZag(i16, v);
+        return decodeZigZag(i32, v);
     }
 
-    pub fn readI64(self: *Reader) ParseError!i64 {
+    pub fn readI64(self: *Reader) TransportStateError!i64 {
         const v = try self.readVarint(u64);
         return decodeZigZag(i64, v);
     }
 
-    pub fn readListBegin(self: *Reader) ParseError!ListBeginMeta{
+    pub fn readListBegin(self: *Reader) CompactProtocolError !ListBeginMeta{
         try self.state.check(.initMany(&[_]State{.VALUE, .CONTAINER}));
         if (check_states) {
             try self.stacks.container_states.appendBounded(self.state);
@@ -242,10 +245,10 @@ pub const Reader = struct {
         }
         try self.state.transition(.initMany(&[_]State{.VALUE, .CONTAINER}), 
             .CONTAINER);
-        return .{ .elem_type = list_type.toTType(), .size = size };
+        return .{ .elem_type = try list_type.toTType(), .size = size };
     }
 
-    pub fn readListEnd(self: *Reader) ParseError!void {
+    pub fn readListEnd(self: *Reader) error{InvalidState}!void {
         try self.state.check(.initMany(&[_]State{.VALUE, .CONTAINER}));
         if (check_states) {
             self.state = self.stacks.container_states.pop().?;
@@ -253,15 +256,15 @@ pub const Reader = struct {
 
     }
 
-    fn skipBytes(self: *Reader, count: u64) ParseError!void {
+    fn skipBytes(self: *Reader, count: u64) TransportError!void {
         const discarded = try self.reader.discard(std.Io.Limit.limited64(count));
         if (discarded < count) {
-            return ParseError.EndOfStream;
+            return error.EndOfStream;
         }
         std.debug.assert(discarded == count);
     }
 
-    pub fn readBool(self: *Reader) ParseError!bool {
+    pub fn readBool(self: *Reader) TransportStateError!bool {
         if (self.bool_value) |b| {
             try self.state.check(.initOne(.BOOL));
             self.bool_value = null;
@@ -272,7 +275,7 @@ pub const Reader = struct {
         return byte == 1;
     }
 
-    pub fn skip(self: *Reader, field_type: TType) ParseError!void {
+    pub fn skip(self: *Reader, field_type: TType) (CompactProtocolError || error{NotImplemented})!void {
         try self.state.check(.initMany(&[_]State{.VALUE, .CONTAINER,
             .BOOL}));
 
@@ -324,7 +327,7 @@ pub const Reader = struct {
         }
     }
 
-    pub fn readStructEnd(self: *Reader) ParseError!void {
+    pub fn readStructEnd(self: *Reader) error{InvalidState}!void {
         try self.state.check(.initOne(.FIELD));
         if (check_states) self.state = self.stacks.struct_states.pop().?;
         self.last_fid = self.stacks.last_fids.pop().?;
@@ -554,7 +557,6 @@ pub const Writer = struct {
     last_fid: i16 = 0,
     bool_fid: ?i16 = null,
     state: State = .CLEAR,
-    //alloc: std.mem.Allocator,
 
     stacks: Stacks = .{},
 
@@ -563,7 +565,7 @@ pub const Writer = struct {
         self.stacks.init();
     }
 
-    pub const WriterError = std.Io.Writer.Error || error {InvalidState, Overflow, OutOfMemory, NotImplemented};
+    pub const WriterError = std.Io.Writer.Error || error {InvalidState, OutOfMemory};
 
     fn encodeZigZag(comptime SignedT: type, n: SignedT) std.meta.Int(.unsigned, @bitSizeOf(SignedT)) {
         const UnsignedT = std.meta.Int(.unsigned, @bitSizeOf(SignedT));
@@ -572,7 +574,7 @@ pub const Writer = struct {
         return (nu << 1) ^ sign_mask;
     }
 
-    fn writeVarint(self: *Writer, comptime T: type, n: T) !void {
+    fn writeVarint(self: *Writer, comptime T: type, n: T) std.Io.Writer.Error!void {
         var val = n;
         while (true) {
             if ((val & ~@as(T, 0x7F)) == 0) {
@@ -602,7 +604,7 @@ pub const Writer = struct {
         ListEnd,
     };
 
-    fn writeFieldHeader(self: *Writer, field: struct { ctype: CType, fid: i16}) WriterError!void {
+    fn writeFieldHeader(self: *Writer, field: struct { ctype: CType, fid: i16}) (std.Io.Writer.Error || error{InvalidState})!void {
         try self.state.check(.initMany(&[_]State{.BOOL, .VALUE}));
         const delta = field.fid - self.last_fid;
         const ctype: u8 = @intFromEnum(field.ctype);
@@ -718,11 +720,7 @@ pub const Writer = struct {
     }
 
     test "api functions" {
-        //var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-        //defer arena.deinit();
-        //const alloc = arena.allocator();
         var buf: [255]u8 = undefined;
-        //var fbs = ;
         var tw: Writer = undefined;
         tw.init(.fixed(&buf));
         

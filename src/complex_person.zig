@@ -2,7 +2,8 @@ const std = @import("std");
 const TCompactProtocol = @import("TCompactProtocol.zig");
 const Parser = TCompactProtocol.Reader;
 const Writer = TCompactProtocol.Writer;
-const ParseError = Parser.ParseError;
+const CompactProtocolError = Parser.CompactProtocolError || error {NotImplemented};
+const ThriftError = Parser.ThriftError;
 const TType = TCompactProtocol.TType;
 const FieldMeta = TCompactProtocol.FieldMeta;
 const ListBeginMeta = TCompactProtocol.ListBeginMeta;
@@ -10,7 +11,7 @@ const ListBeginMeta = TCompactProtocol.ListBeginMeta;
 
 pub const SockType = enum(i32) { LEFT = 0, RIGHT = 1, _ };
 
-fn readFieldOrStop(p: *Parser) ParseError!?FieldMeta {
+fn readFieldOrStop(p: *Parser) CompactProtocolError!?FieldMeta {
     const field = try p.readFieldBegin();
     if (field.tp == .STOP) return null;
     return field;
@@ -25,7 +26,7 @@ pub const Animal = union(enum) {
     age_of_dog: i16,
     number_of_fish: i16,
 
-    pub fn read(p: *Parser) ParseError!Animal {
+    pub fn read(p: *Parser) (CompactProtocolError || ThriftError)!Animal {
         var animal: ?Animal = null;
         try p.readStructBegin();
         while (try readFieldOrStop(p))  |field| {
@@ -35,7 +36,7 @@ pub const Animal = union(enum) {
             try p.readFieldEnd();
         }
         try p.readStructEnd();
-        return animal orelse ParseError.CantParseUnion;
+        return animal orelse error.CantParseUnion;
     }
 
     // Every struct or union has a FieldTag construct with the original field tags.
@@ -47,7 +48,7 @@ pub const Animal = union(enum) {
     };
 
     /// Field tags are used in switch statements both in reading and writing functions.
-    fn readAnimalField(p: *Parser, field: FieldMeta) Parser.ParseError!?Animal {
+    fn readAnimalField(p: *Parser, field: FieldMeta) CompactProtocolError!?Animal {
         sw: switch (@as(FieldTag, @enumFromInt(field.fid))) {
             .age_of_dog => {
                 if (field.tp == TType.I16) {
@@ -111,7 +112,7 @@ pub const Sock = struct {
         pattern: bool = false
     };
 
-    pub fn read(p: *Parser) ParseError!Sock {
+    pub fn read(p: *Parser) (CompactProtocolError || ThriftError)!Sock {
         var sock: Sock = undefined;
         var isset: Isset = .{};
 
@@ -126,13 +127,13 @@ pub const Sock = struct {
         if (isset.sock_type and isset.pattern) {
             return sock;
         } else {
-            return ParseError.RequiredFieldMissing; 
+            return ThriftError.RequiredFieldMissing; 
         }
     }
 
     fn readSockField(self: *Sock, p: *Parser, isset: *Isset, 
                     field: FieldMeta
-    ) ParseError!void {
+    ) CompactProtocolError!void {
         sw: switch (@as(FieldTag, @enumFromInt(field.fid))) {
             .sock_type => {
                 if (field.tp == TType.I32) {
@@ -251,7 +252,7 @@ pub const ComplexPerson = struct {
         try w.write(.StructEnd);
     }
 
-    fn readComplexPersonField(person: *ComplexPerson, p: *Parser, isset: *Isset, alloc: std.mem.Allocator, field: FieldMeta) ParseError!void {
+    fn readComplexPersonField(person: *ComplexPerson, p: *Parser, isset: *Isset, alloc: std.mem.Allocator, field: FieldMeta) CompactProtocolError!void {
         sw: switch (@as(FieldTag, @enumFromInt(field.fid))) {
             .userName => {
                 if (field.tp == TType.STRING) {
@@ -298,8 +299,8 @@ pub const ComplexPerson = struct {
                             try person.pets.?.append(animal);
                         } else |err| {
                             switch (err) {
-                                ParseError.CantParseUnion, ParseError.RequiredFieldMissing => {},
-                                else => return err,
+                                error.CantParseUnion, error.RequiredFieldMissing => {},
+                                else => |err2| return err2,
                             }
                         }
                     }
@@ -318,8 +319,8 @@ pub const ComplexPerson = struct {
                         if (Sock.read(p)) |sock| {
                             try person.socks.?.append(sock);
                         } else |err| switch (err) {
-                            ParseError.CantParseUnion, ParseError.RequiredFieldMissing => {},
-                            else => return err,
+                            ThriftError.CantParseUnion, ThriftError.RequiredFieldMissing => {},
+                            else => |err2| return err2,
                         }
                     }
                     try p.readListEnd();
@@ -333,7 +334,7 @@ pub const ComplexPerson = struct {
     }
 
 
-    pub fn read(p: *Parser, alloc: std.mem.Allocator) ParseError!ComplexPerson {
+    pub fn read(p: *Parser, alloc: std.mem.Allocator) CompactProtocolError!ComplexPerson {
         var person = ComplexPerson{
             .userName = undefined,
             .favoriteNumber = null,
