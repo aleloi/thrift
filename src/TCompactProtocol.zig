@@ -201,9 +201,8 @@ pub const Reader = struct {
                 return try this.reader.takeByte();
             }
         };
-        const ar = AdaptedReader{ .reader = &self.reader };
 
-        return try std.leb.readUleb128(T, ar);
+        return try std.leb.readUleb128(T, AdaptedReader{ .reader = &self.reader });
 
         // var res: T = 0;
         // var shift: u8 = 0;
@@ -599,6 +598,7 @@ pub const Writer = struct {
         FieldStop,
         Binary: []const u8,
         Bool: bool,
+        I08: i8,
         I16: i16,
         I32: i32,
         I64: i64,
@@ -673,6 +673,9 @@ pub const Writer = struct {
                 }
                 try self.state.check(.initOne(.CONTAINER));
                 try self.writer.writeByte(if (b) 1 else 0);
+            },
+            .I08 => |i| {
+                try self.writer.writeByte(@bitCast(i));
             },
             .I16 => |i| {
                 try self.writeVarint(u16, encodeZigZag(i16, i));
