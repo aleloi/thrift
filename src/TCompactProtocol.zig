@@ -192,6 +192,15 @@ pub const Reader = struct {
         return res;
     }
 
+    pub fn readByte(self: *Reader) TransportStateAllocError!u8 {
+        try self.state.check(.initMany(&[_]State{ .VALUE, .CONTAINER }));
+        return try self.reader.takeByte();
+    }
+
+    pub fn readI08(self: *Reader) TransportStateAllocError!i8 {
+        return @bitCast(try self.readByte());
+    }
+
     fn readVarint(self: *Reader, comptime T: type) (TransportStateError || error{Overflow})!T {
         try self.state.check(.initMany(&[_]State{ .VALUE, .CONTAINER, .FIELD }));
 

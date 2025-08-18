@@ -33,14 +33,19 @@ BASIC_NAMED_TO_TTYPE = {
     "double": "DOUBLE",
     "string": "STRING",
     "binary": "STRING",
-    "i8": "I08",
+    "i8": "BYTE",
     "i16": "I16",
     "i32": "I32",
     "i64": "I64",
 }
 
+# TODO: TTYPE (thrift logical types) differentiates between BYTE and I08, but
+# CTYPE (compact protocol enum type values) uses BYTE for both. Current codegen
+# maps CTYPE.I08 to TTYPE.BYTE and assumes you always want .readI08 both when thrift
+# type is byte and i8. Consequence - thrift IDL with i8 works (and maps to zig i8),
+# but byte does not. This is solvable, but requires some rewriting in the code gen.
 TTYPE_TO_CMD = {
-    "I08": "I08",
+    "BYTE": "I08",
     "I16": "I16",
     "I32": "I32",
     "I64": "I64",
@@ -51,7 +56,7 @@ TTYPE_TO_CMD = {
 
 # Reader method names for basic, non-allocating types
 TTYPE_TO_READFN = {
-    "I08": "readI8",
+    "BYTE": "readI08",
     "I16": "readI16",
     "I32": "readI32",
     "I64": "readI64",
@@ -176,8 +181,37 @@ def write_field(f: Field, defsmap: dict[str, Definition]) -> str:
     return "\n".join(out)
 
 
-def _emit_read_field_case(f: Field, defsmap: dict[str, Definition]) -> list[str]:
-    # Implement reading for enums, STRING/BINARY, structs, and unions; leave lists/others unimplemented here.
+def _emit_read_list_item_lines(indent: str, list_expr: str, elem_t: Type, defsmap: dict[str, Definition]) -> list[str]:
+    lines: list[str] = []
+    if isinstance(elem_t, NamedType):
+        n = elem_t.name
+        if n in BASIC_NAMED_TO_TTYPE:
+            ttype = BASIC_NAMED_TO_TTYPE[n]
+            if ttype == "STRING":
+                lines.append(f"{indent}const item = try r.readBinary(alloc);")
+                lines.append(f"{indent}errdefer alloc.free(item);")
+                lines.append(f"{indent}try {list_expr}.append(alloc, item);")
+                return lines
+            if ttype in TTYPE_TO_READFN:
+                read_fn = TTYPE_TO_READFN[ttype]
+                lines.append(f"{indent}const item = try r.{read_fn}();")
+                lines.append(f"{indent}try {list_expr}.append(alloc, item);")
+                return lines
+        if n in defsmap and isinstance(defsmap[n], EnumDef):
+            lines.append(f"{indent}const item: {n} = @enumFromInt(try r.readI32());")
+            lines.append(f"{indent}try {list_expr}.append(alloc, item);")
+            return lines
+        if n in defsmap and isinstance(defsmap[n], (StructDef, UnionDef)):
+            lines.append(f"{indent}if (try readCatchThrift({n}, r, alloc)) |item| {{")
+            lines.append(f"{indent}    // @constCast OKAY here: deinit only frees heap pointers inside stack-copied 'item'.")
+            lines.append(f"{indent}    errdefer @constCast(&item).deinit(alloc);")
+            lines.append(f"{indent}    try {list_expr}.append(alloc, item);")
+            lines.append(f"{indent}}}")
+            return lines
+    raise NotImplementedError(f"Unsupported list element type for reading: {elem_t!r}")
+
+def _emit_read_field_case(f: Field, defsmap: dict[str, Definition], type_system: ZigTypeSystem) -> list[str]:
+    # Implement reading for enums, STRING/BINARY, structs, unions, and now LISTs
     if isinstance(f.type, NamedType):
         n = f.type.name
         # Basic primitives (non-allocating)
@@ -219,53 +253,72 @@ def _emit_read_field_case(f: Field, defsmap: dict[str, Definition]) -> list[str]
                 f"                continue :sw .default;",
                 f"            }},",
             ]
-        # Structs
+        # Struct field (named) — use readCatchThrift
         if n in defsmap and isinstance(defsmap[n], StructDef):
             return [
                 f"            .{f.name} => {{",
                 f"                if (field.tp == TType.STRUCT) {{",
-                f"                    if ({n}.read(r, alloc)) |value| {{",
+                f"                    if (try readCatchThrift({n}, r, alloc)) |value| {{",
                 f"                        self.{f.name} = value;",
                 f"                        isset.{f.name} = true;",
-                f"                    }} else |err| switch (err) {{",
-                f"                        ThriftError.CantParseUnion, ThriftError.RequiredFieldMissing => {{}},",
-                f"                        else => |err2| return err2,",
                 f"                    }}",
                 f"                    return;",
                 f"                }}",
                 f"                continue :sw .default;",
                 f"            }},",
             ]
-        # Unions
+
+        # Union field (named) — use readCatchThrift
         if n in defsmap and isinstance(defsmap[n], UnionDef):
             return [
                 f"            .{f.name} => {{",
                 f"                if (field.tp == TType.STRUCT) {{",
-                f"                    if ({n}.read(r, alloc)) |value| {{",
+                f"                    if (try readCatchThrift({n}, r, alloc)) |value| {{",
                 f"                        self.{f.name} = value;",
                 f"                        isset.{f.name} = true;",
-                f"                    }} else |err| switch (err) {{",
-                f"                        ThriftError.CantParseUnion, ThriftError.RequiredFieldMissing => {{}},",
-                f"                        else => |err2| return err2,",
                 f"                    }}",
                 f"                    return;",
                 f"                }}",
                 f"                continue :sw .default;",
                 f"            }},",
             ]
-    # Lists and others: not supported for reading yet; always skip
+
+    if isinstance(f.type, ListType):
+        elem_t = _get_list_elem_type(f.type)
+        elem_zig = type_system.get_zig_type(elem_t, True)
+        list_expr = f"self.{f.name}.?" if not f.required else f"self.{f.name}"
+        lines = [
+            f"            .{f.name} => {{",
+            f"                if (field.tp == TType.LIST) {{",
+            f"                    const list_meta = try r.readListBegin();",
+            f"                    self.{f.name} = std.ArrayList({elem_zig}).empty;",
+            f"                    isset.{f.name} = true;",
+            f"                    try {list_expr}.ensureTotalCapacity(alloc, list_meta.size);",
+            f"                    for (0..list_meta.size) |_| {{",
+        ]
+        # delegate per-element
+        lines.extend(_emit_read_list_item_lines("                        ", list_expr, elem_t, defsmap))
+        lines.extend([
+            f"                    }}",
+            f"                    try r.readListEnd();",
+            f"                    return;",
+            f"                }}",
+            f"                continue :sw .default;",
+            f"            }},",
+        ])
+        return lines
+
+    # default skip
     return [
         f"            .{f.name} => {{",
         f"                continue :sw .default;",
         f"            }},",
     ]
 
-
 def _emit_read_union_field_case(union_name: str, f: Field, defsmap: dict[str, Definition]) -> list[str]:
-    # Generate a switch case arm for reading a union field; returns ?{union_name}
     if isinstance(f.type, NamedType):
         n = f.type.name
-        # primitives / string / binary
+        # primitives / string / binary — unchanged
         if n in BASIC_NAMED_TO_TTYPE:
             ttype = BASIC_NAMED_TO_TTYPE[n]
             if ttype == "STRING":
@@ -287,7 +340,7 @@ def _emit_read_union_field_case(union_name: str, f: Field, defsmap: dict[str, De
                     f"                continue :sw .default;",
                     f"            }},",
                 ]
-        # enums
+        # enum — unchanged
         if n in defsmap and isinstance(defsmap[n], EnumDef):
             return [
                 f"            .{f.name} => {{",
@@ -297,33 +350,38 @@ def _emit_read_union_field_case(union_name: str, f: Field, defsmap: dict[str, De
                 f"                continue :sw .default;",
                 f"            }},",
             ]
-        # nested struct
+        # nested struct — use readCatchThrift
         if n in defsmap and isinstance(defsmap[n], StructDef):
             return [
                 f"            .{f.name} => {{",
                 f"                if (field.tp == TType.STRUCT) {{",
-                f"                    return {union_name}{{ .{f.name} = try {n}.read(r, alloc) }};",
+                f"                    if (try readCatchThrift({n}, r, alloc)) |value| {{",
+                f"                        return {union_name}{{ .{f.name} = value }};",
+                f"                    }}",
+                f"                    return null;",
                 f"                }}",
                 f"                continue :sw .default;",
                 f"            }},",
             ]
-        # nested union
+        # nested union — use readCatchThrift
         if n in defsmap and isinstance(defsmap[n], UnionDef):
             return [
                 f"            .{f.name} => {{",
                 f"                if (field.tp == TType.STRUCT) {{",
-                f"                    return {union_name}{{ .{f.name} = try {n}.read(r, alloc) }};",
+                f"                    if (try readCatchThrift({n}, r, alloc)) |value| {{",
+                f"                        return {union_name}{{ .{f.name} = value }};",
+                f"                    }}",
+                f"                    return null;",
                 f"                }}",
                 f"                continue :sw .default;",
                 f"            }},",
             ]
-    # lists and others: not supported yet
+    # lists/others not supported for unions
     return [
         f"            .{f.name} => {{",
         f"                continue :sw .default;",
         f"            }},",
     ]
-
 
 def _emit_deinit_for_elem(indent: str, item_expr: str, elem_t: Type, defsmap: dict[str, Definition]) -> list[str]:
     lines: list[str] = []
@@ -374,6 +432,7 @@ def _emit_deinit_for_field(indent: str, container_expr: str, f: Field, defsmap: 
         else:
             lines.append(f"{indent}if ({container_expr}.{f.name}) |*list| {{")
             lines.append(f"{indent}    for (list.items) |*item| {{")
+            lines.append(f"{indent}        use_arg(item);")
             lines.extend(_emit_deinit_for_elem(indent + "        ", "item", elem_t, defsmap))
             lines.append(f"{indent}    }}")
             lines.append(f"{indent}    list.deinit(alloc);")
@@ -448,6 +507,19 @@ fn readFieldOrStop(r: *Reader) CompactProtocolError!?FieldMeta {
     const field = try r.readFieldBegin();
     if (field.tp == .STOP) return null;
     return field;
+}
+
+
+/// Wraps struct/union .read and returns 'null' on ThriftError
+fn readCatchThrift(T: type, r: *Reader, alloc: std.mem.Allocator) CompactProtocolError!?T {
+    if (T.read(r, alloc)) |value| {
+        return value;
+    } else |err| switch (err) {
+        ThriftError.CantParseUnion, ThriftError.RequiredFieldMissing => {
+            return null;
+        },
+        else => |err2| return err2,
+    }
 }
 '''
 
@@ -533,13 +605,13 @@ fn readFieldOrStop(r: *Reader) CompactProtocolError!?FieldMeta {
 
         field_cases_lines: list[str] = []
         for f in struct_def.fields:
-            field_cases_lines.extend(_emit_read_field_case(f, self.defsmap))
+            field_cases_lines.extend(_emit_read_field_case(f, self.defsmap, self.type_system))
         read_field_helper = f"""    fn read{struct_def.name}Field(self: *{struct_def.name}, r: *Reader, alloc: std.mem.Allocator, isset: *Isset, field: FieldMeta) CompactProtocolError!void {{
         use_arg(self);
         use_arg(r);
         use_arg(alloc);
         use_arg(isset);
-        // list field parsing not implemented yet
+        // list field parsing now implemented
         sw: switch (@as(FieldTag, @enumFromInt(field.fid))) {{
 {'\n'.join(field_cases_lines)}
             .default => try r.skip(field.tp),
@@ -608,7 +680,7 @@ fn readFieldOrStop(r: *Reader) CompactProtocolError!?FieldMeta {
         write_cases = []
         for f in union_def.fields:
             if isinstance(f.type, ListType):
-                # lists: not supported yet for reading; writing already handled elsewhere if ever needed
+                # lists: not supported for union writing
                 write_cases.append(f"            .{f.name} => |payload| {{ ")
                 write_cases.append(f"                // list writing handled elsewhere; unreachable if we don't generate such unions")
                 write_cases.append(f"            }}, ")
@@ -735,6 +807,27 @@ fn readFieldOrStop(r: *Reader) CompactProtocolError!?FieldMeta {
                     val = self._gen_union_value(unions[t], structs, unions, enums)
         return f".{{ .{f.name} = {val} }}"
 
+    def _gen_fill_list_fields(self, var_name: str, definition: StructDef, structs: dict[str, StructDef], unions: dict[str, UnionDef], enums: dict[str, EnumDef]) -> list[str]:
+        lines: list[str] = []
+        for f in definition.fields:
+            if isinstance(f.type, ListType):
+                elem_t = _get_list_elem_type(f.type)
+                elem_zig = self.type_system.get_zig_type(elem_t, True)
+                sample = self._sample_value(elem_t, structs, unions, enums)
+                # ensure non-empty to exercise reader; add two items
+                if f.required:
+                    lines.append(f"    try {var_name}.{f.name}.ensureTotalCapacity(alloc, 2);")
+                    lines.append(f"    try {var_name}.{f.name}.append(alloc, {sample});")
+                    lines.append(f"    try {var_name}.{f.name}.append(alloc, {sample});")
+                    lines.append(f"    defer {var_name}.{f.name}.deinit(alloc);")
+                else:
+                    lines.append(f"    {var_name}.{f.name} = std.ArrayList({elem_zig}).empty;")
+                    lines.append(f"    try {var_name}.{f.name}.?.ensureTotalCapacity(alloc, 2);")
+                    lines.append(f"    try {var_name}.{f.name}.?.append(alloc, {sample});")
+                    lines.append(f"    try {var_name}.{f.name}.?.append(alloc, {sample});")
+                    lines.append(f"    defer {var_name}.{f.name}.?.deinit(alloc);")
+        return lines
+
     def _generate_test_block(self) -> str:
         test_calls = []
         structs: dict[str, StructDef] = {}
@@ -752,12 +845,16 @@ fn readFieldOrStop(r: *Reader) CompactProtocolError!?FieldMeta {
         # Write in definition order
         for definition in self.idl.definitions:
             if isinstance(definition, StructDef):
-                test_calls.append(f"    var struct{struct_counter}: {definition.name} = {self._gen_struct_value(definition, structs, unions, enums)};")
-                test_calls.append(f"    try struct{struct_counter}.write(&w);")
+                var_name = f"struct{struct_counter}"
+                test_calls.append(f"    var {var_name}: {definition.name} = {self._gen_struct_value(definition, structs, unions, enums)};")
+                # populate list fields (and defer list backing to avoid leaks)
+                test_calls.extend(self._gen_fill_list_fields(var_name, definition, structs, unions, enums))
+                test_calls.append(f"    try {var_name}.write(&w);")
                 struct_counter += 1
             elif isinstance(definition, UnionDef):
-                test_calls.append(f"    var union{union_counter}: {definition.name} = {self._gen_union_value(unions[definition.name], structs, unions, enums)};")
-                test_calls.append(f"    try union{union_counter}.write(&w);")
+                var_name = f"union{union_counter}"
+                test_calls.append(f"    var {var_name}: {definition.name} = {self._gen_union_value(unions[definition.name], structs, unions, enums)};")
+                test_calls.append(f"    try {var_name}.write(&w);")
                 union_counter += 1
 
         test_calls.extend([
