@@ -267,7 +267,8 @@ def pretty_print(idl: IDLFile) -> str:
         elif isinstance(d, StructDef):
             lines.append(f"struct {d.name} {{")
             for f in d.fields:
-                req = f.required + " " if f.required else ""
+                # TODO: not correct, there is also default requiredness
+                req = "required " if f.required else "optional "
                 tstr = _type_to_str(f.type)
                 default = f" = {f.default}" if f.default is not None else ""
                 lines.append(f"  {f.id}: {req}{tstr} {f.name}{default};")
@@ -275,7 +276,8 @@ def pretty_print(idl: IDLFile) -> str:
         elif isinstance(d, UnionDef):
             lines.append(f"union {d.name} {{")
             for f in d.fields:
-                req = f.required + " " if f.required else ""
+                # TODO: not correct, there is also default requiredness
+                req = "required " if f.required else "optional "
                 tstr = _type_to_str(f.type)
                 default = f" = {f.default}" if f.default is not None else ""
                 lines.append(f"  {f.id}: {req}{tstr} {f.name}{default};")

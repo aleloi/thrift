@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const check_states: bool = @import("builtin").mode == .Debug;
+const check_states: bool = std.debug.runtime_safety;
 
 const State = enum {
     CLEAR,
@@ -186,43 +186,20 @@ pub const Reader = struct {
 
     pub fn readBinary(self: *Reader, alloc: std.mem.Allocator) (error{Overflow} || TransportStateAllocError)![]const u8 {
         try self.state.check(.initMany(&[_]State{ .VALUE, .CONTAINER }));
-        const len = try self.readVarint(u64);
+        const len = try self.reader.takeLeb128(u64);
         const res = try self.reader.readAlloc(alloc, len);
         std.debug.assert(res.len == len);
         return res;
     }
 
     pub fn readByte(self: *Reader) TransportStateAllocError!u8 {
+        //std.debug.print("reading byte\n", {});
         try self.state.check(.initMany(&[_]State{ .VALUE, .CONTAINER }));
         return try self.reader.takeByte();
     }
 
     pub fn readI08(self: *Reader) TransportStateAllocError!i8 {
         return @bitCast(try self.readByte());
-    }
-
-    fn readVarint(self: *Reader, comptime T: type) (TransportStateError || error{Overflow})!T {
-        try self.state.check(.initMany(&[_]State{ .VALUE, .CONTAINER, .FIELD }));
-
-        const AdaptedReader = struct {
-            reader: *std.Io.Reader,
-            pub fn readByte(this: @This()) error{ ReadFailed, EndOfStream }!u8 {
-                return try this.reader.takeByte();
-            }
-        };
-
-        return try std.leb.readUleb128(T, AdaptedReader{ .reader = &self.reader });
-
-        // var res: T = 0;
-        // var shift: u8 = 0;
-        // while (true) {
-        //     const byte = try self.reader.takeByte();
-        //     res |= @as(T, byte & 0x7f) << @intCast(shift);
-        //     if (byte & 0x80 == 0) {
-        //         return res;
-        //     }
-        //     shift += 7;
-        // }
     }
 
     fn decodeZigZag(comptime SignedT: type, n: anytype) SignedT {
@@ -233,18 +210,23 @@ pub const Reader = struct {
     }
 
     pub fn readI16(self: *Reader) (error{Overflow} || TransportStateError)!i16 {
-        const v = try self.readVarint(u16);
+        const v = try self.reader.takeLeb128(u16);
         return decodeZigZag(i16, v);
     }
 
     pub fn readI32(self: *Reader) (error{Overflow} || TransportStateError)!i32 {
-        const v = try self.readVarint(u32);
+        const v = try self.reader.takeLeb128(u32);
         return decodeZigZag(i32, v);
     }
 
     pub fn readI64(self: *Reader) (error{Overflow} || TransportStateError)!i64 {
-        const v = try self.readVarint(u64);
-        return decodeZigZag(i64, v);
+        const vv = try self.reader.takeLeb128(u64);
+        return decodeZigZag(i64, vv);
+    }
+
+    pub fn readDouble(self: *Reader) TransportStateError!f64 {
+        const u: u64 = try self.reader.takeInt(u64, .little);
+        return @bitCast(u);
     }
 
     pub fn readListBegin(self: *Reader) CompactProtocolError!ListBeginMeta {
@@ -256,7 +238,7 @@ pub const Reader = struct {
         var size: u32 = size_type >> 4;
         const list_type: CType = @enumFromInt(size_type & 0x0f);
         if (size == 15) {
-            size = try self.readVarint(u32);
+            size = try self.reader.takeLeb128(u32);
         }
         try self.state.transition(.initMany(&[_]State{ .VALUE, .CONTAINER }), .CONTAINER);
         return .{ .elem_type = try list_type.toTType(), .size = size };
@@ -307,13 +289,13 @@ pub const Reader = struct {
                 _ = try self.readI16();
             },
             .I32 => {
-                _ = try self.readVarint(u32);
+                _ = try self.reader.takeLeb128(u32);
             },
             .I64 => {
                 _ = try self.readI64();
             },
             .STRING => {
-                const len = try self.readVarint(u64);
+                const len = try self.reader.takeLeb128(u64);
                 try self.skipBytes(len);
             },
             .LIST, .SET => {
@@ -332,6 +314,7 @@ pub const Reader = struct {
                         break;
                     }
                     try self.skip(field.tp);
+                    try self.readFieldEnd();
                 }
                 try self.readStructEnd();
             },
@@ -414,19 +397,6 @@ pub const Reader = struct {
             }
         };
         try std.testing.fuzz(Context{}, Context.testOne, .{});
-    }
-
-    test "readVarint" {
-        var data = [_]u8{0x01};
-        var parser: Reader = undefined;
-        parser.init(std.Io.Reader.fixed(&data));
-        parser.state = .VALUE;
-        try std.testing.expectEqual(@as(u64, 1), try parser.readVarint(u64));
-
-        var data2 = [_]u8{ 0x81, 0x01 };
-        parser.init(std.Io.Reader.fixed(&data2));
-        parser.state = .VALUE;
-        try std.testing.expectEqual(@as(u64, 129), try parser.readVarint(u64));
     }
 
     test "readBinary" {
@@ -584,21 +554,6 @@ pub const Writer = struct {
         return (nu << 1) ^ sign_mask;
     }
 
-    fn writeVarint(self: *Writer, comptime T: type, n: T) std.Io.Writer.Error!void {
-        var val = n;
-        while (true) {
-            if ((val & ~@as(T, 0x7F)) == 0) {
-                const b: u8 = @intCast(val);
-                try self.writer.writeByte(b);
-                break;
-            } else {
-                const b: u8 = @intCast((val & 0x7F) | 0x80);
-                try self.writer.writeByte(b);
-                val = val >> 7;
-            }
-        }
-    }
-
     pub const ApiCall = union(enum) {
         StructBegin,
         StructEnd,
@@ -607,10 +562,12 @@ pub const Writer = struct {
         FieldStop,
         Binary: []const u8,
         Bool: bool,
+        Byte: u8,
         I08: i8,
         I16: i16,
         I32: i32,
         I64: i64,
+        Double: f64,
         ListBegin: ListBeginMeta,
         ListEnd,
     };
@@ -625,7 +582,7 @@ pub const Writer = struct {
             try self.writer.writeByte(b);
         } else {
             try self.writer.writeByte(ctype);
-            try self.writeVarint(u16, encodeZigZag(i16, field.fid));
+            try self.writer.writeUleb128(@as(u16, encodeZigZag(i16, field.fid)));
         }
         self.last_fid = field.fid;
     }
@@ -670,7 +627,7 @@ pub const Writer = struct {
                 try self.writer.writeByte(0);
             },
             .Binary => |s| {
-                try self.writeVarint(u64, s.len);
+                try self.writer.writeUleb128(s.len);
                 try self.writer.writeAll(s);
             },
             .Bool => |b| {
@@ -683,17 +640,23 @@ pub const Writer = struct {
                 try self.state.check(.initOne(.CONTAINER));
                 try self.writer.writeByte(if (b) 1 else 0);
             },
+            .Byte => |b| {
+                try self.writer.writeByte(b);
+            },
             .I08 => |i| {
                 try self.writer.writeByte(@bitCast(i));
             },
             .I16 => |i| {
-                try self.writeVarint(u16, encodeZigZag(i16, i));
+                try self.writer.writeUleb128(encodeZigZag(i16, i));
             },
             .I32 => |i| {
-                try self.writeVarint(u32, encodeZigZag(i32, i));
+                try self.writer.writeUleb128(encodeZigZag(i32, i));
             },
             .I64 => |i| {
-                try self.writeVarint(u64, encodeZigZag(i64, i));
+                try self.writer.writeUleb128(encodeZigZag(i64, i));
+            },
+            .Double => |f| {
+                try self.writer.writeInt(u64, @bitCast(f), .little);
             },
             .ListBegin => |meta| {
                 if (check_states) try self.stacks.container_states.appendBounded(self.state);
@@ -704,7 +667,7 @@ pub const Writer = struct {
                     try self.writer.writeByte(@as(u8, size8 << 4) | ctype);
                 } else {
                     try self.writer.writeByte(0xf0 | ctype);
-                    try self.writeVarint(u32, meta.size);
+                    try self.writer.writeUleb128(meta.size);
                 }
             },
         }
@@ -786,18 +749,6 @@ pub const Writer = struct {
         const expected_bool_fields_bytes = [_]u8{ @as(u8, 14 << 4) | @as(u8, @intFromEnum(CType.TRUE)), 0 | @as(u8, @intFromEnum(CType.FALSE)), @intCast((expected_delta & 0x7F) | 0x80), @intCast(expected_delta >> 7) };
 
         try std.testing.expectEqualSlices(u8, &expected_bool_fields_bytes, tw.writer.buffered());
-    }
-
-    test "writeVarint" {
-        var buf: [10]u8 = undefined;
-        var tw: Writer = undefined;
-        tw.init(.fixed(&buf));
-        try tw.writeVarint(u64, 1);
-        try std.testing.expectEqualSlices(u8, &[_]u8{0x01}, tw.writer.buffered());
-
-        tw.writer.end = 0;
-        try tw.writeVarint(u64, 129);
-        try std.testing.expectEqualSlices(u8, &[_]u8{ 0x81, 0x01 }, tw.writer.buffered());
     }
 
     test "encodeZigZag" {

@@ -1,7 +1,6 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {
-
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
@@ -26,19 +25,15 @@ pub fn build(b: *std.Build) void {
 
     const test_step = b.step("test", "Run tests");
 
-
-    const test_files: []const [] const u8 = &.{
+    const test_files: []const []const u8 = &.{
         "src/complex_person.zig",
         "src/main.zig",
+        "src/Meta.zig",
         "src/TCompactProtocol.zig",
-        };
+    };
     for (test_files) |test_file| {
         const test_set = b.addTest(.{
-            .root_module = b.createModule(.{
-                .root_source_file=b.path(test_file),
-                .target = target,
-                .optimize = optimize
-                }),
+            .root_module = b.createModule(.{ .root_source_file = b.path(test_file), .target = target, .optimize = optimize }),
             //.target = target,
             //.optimize = optimize,
         });
