@@ -5,7 +5,7 @@ const Reader = TCompactProtocol.Reader;
 const TType = TCompactProtocol.TType;
 const FieldMeta = TCompactProtocol.FieldMeta;
 const WriterError = Writer.WriterError;
-const CompactProtocolError = Reader.CompactProtocolError || error{NotImplemented};
+const CompactProtocolError = Reader.CompactProtocolError || error{ NotImplemented, WriteFailed };
 const ThriftError = Reader.ThriftError;
 const Meta = @import("Meta.zig");
 
@@ -15,8 +15,7 @@ test "fuzz parquet" {
     const Context = struct {
         //arena: *std.heap.ArenaAllocator,
 
-        fn testOne(context: @This(), input: []const u8) !void {
-            _ = context;
+        fn testOneWithErrors(input: []const u8) (CompactProtocolError || ThriftError)!void {
             var buf: [10000000]u8 = undefined;
             var fba = std.heap.FixedBufferAllocator.init(&buf);
             const alloc = fba.allocator();
@@ -26,11 +25,7 @@ test "fuzz parquet" {
                 var r: Reader = undefined;
                 r.init(.fixed(input));
 
-                break :blk Meta.structRead(p.FileMetaData, alloc, &r) catch |err| switch (err) {
-                    CompactProtocolError.OutOfMemory => unreachable,
-                    CompactProtocolError.NotImplemented => unreachable,
-                    else => |err2| return err2,
-                };
+                break :blk try Meta.structRead(p.FileMetaData, alloc, &r);
             };
 
             const fmd_serialized = blk: {
@@ -51,6 +46,15 @@ test "fuzz parquet" {
 
             // TODO capacity...
             std.testing.expectEqualDeep(fmd, fmd_deserialized) catch unreachable;
+        }
+
+        fn testOne(context: @This(), input: []const u8) !void {
+            _ = context;
+            testOneWithErrors(input) catch |err| switch (err) {
+                ThriftError.CantParseUnion, ThriftError.RequiredFieldMissing, CompactProtocolError.EndOfStream, CompactProtocolError.InvalidCType, CompactProtocolError.InvalidState, CompactProtocolError.Overflow, CompactProtocolError.ReadFailed => {},
+                CompactProtocolError.NotImplemented, CompactProtocolError.WriteFailed => unreachable,
+                else => unreachable,
+            };
         }
     };
 
