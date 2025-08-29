@@ -329,8 +329,8 @@ fn readCatchThrift(T: type, r: *Reader, alloc: std.mem.Allocator) CompactProtoco
                     elif isinstance(df, UnionDef):
                         val = self._gen_union_value(unions[t], structs, unions, enums)
             arg = f".{f.name} = {val}"
-            if not f.required:
-                arg = f".{f.name} = null"
+            #if not f.required:
+            #    arg = f".{f.name} = null"
             construction_args.append(arg)
         return f"{definition.name}{{ {', '.join(construction_args)} }}"
 
@@ -424,7 +424,7 @@ fn readCatchThrift(T: type, r: *Reader, alloc: std.mem.Allocator) CompactProtoco
                 test_calls.extend([
                     f"    const {name}_read = try Meta.structRead({definition.name}, alloc, &r);",
                     f"    defer Meta.deinit({definition.name}, {name}_read, alloc);",
-                    f"    try std.testing.expectEqualDeep({name}, {name}_read);"
+                    f"    try Meta.expectEqualDeep({name}, {name}_read);"
                 ])
                 struct_counter += 1
             elif isinstance(definition, UnionDef):
@@ -432,7 +432,7 @@ fn readCatchThrift(T: type, r: *Reader, alloc: std.mem.Allocator) CompactProtoco
                 test_calls.extend([
                     f"    const {name}_read = try Meta.unionRead({definition.name}, alloc, &r);",
                     f"    defer Meta.deinit({definition.name}, {name}_read, alloc);",
-                    f"    try std.testing.expectEqualDeep({name}, {name}_read);"
+                    f"    try Meta.expectEqualDeep({name}, {name}_read);"
                 ])
                 union_counter += 1
         

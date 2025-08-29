@@ -83,7 +83,7 @@ fn valueWrite(comptime T: type, value: T, w: *TCompactProtocol.Writer) !void {
 }
 
 fn fieldWrite(comptime T: type, value: T, fid: i16, w: *TCompactProtocol.Writer) !void {
-    std.debug.print("Writing field with id {} and value {any}\n", .{ fid, value });
+    //std.debug.print("Writing field with id {} and value {any}\n", .{ fid, value });
     const TT = comptime type2ttype(T);
     try w.write(.{ .FieldBegin = .{ .tp = TT, .fid = fid } });
     try valueWrite(T, value, w);
@@ -213,6 +213,7 @@ fn readValue(T: type, r: *Reader, alloc: std.mem.Allocator) (CompactProtocolErro
             } else return i;
         },
         .I64 => return try r.readI64(),
+        .DOUBLE => return try r.readDouble(),
         .STRING => return try r.readBinary(alloc),
         .STRUCT => {
             const To = stripOptional(T);
@@ -290,7 +291,7 @@ fn validate(T: type, isset: IsSet(T)) ThriftError!void {
         if (field.default_value_ptr == null and @typeInfo(field.type) != .optional) {
             const present: bool = @field(isset, field.name);
             if (!present) {
-                std.debug.print("Field name '{s}: {s}' missing \n", .{ field.name, @typeName(field.type) });
+                //std.debug.print("Field name '{s}: {s}' missing \n", .{ field.name, @typeName(field.type) });
                 return ThriftError.RequiredFieldMissing;
             }
         }
@@ -379,190 +380,101 @@ fn readUnionField(T: type, alloc: std.mem.Allocator, r: *Reader, field_meta: Fie
 }
 
 // // FROM std.testing, want special case for arraylist capacity:
-// fn print(comptime fmt: []const u8, args: anytype) void {
-//     if (@inComptime()) {
-//         @compileError(std.fmt.comptimePrint(fmt, args));
-//     } else {
-//         std.debug.print(fmt, args);
-//     }
-// }
+fn print(comptime fmt: []const u8, args: anytype) void {
+    if (@inComptime()) {
+        @compileError(std.fmt.comptimePrint(fmt, args));
+    } else {
+        std.debug.print(fmt, args);
+    }
+}
 
-// pub inline fn expectEqualDeep(expected: anytype, actual: anytype) error{TestExpectedEqual}!void {
-//     const T = @TypeOf(expected, actual);
-//     return expectEqualDeepInner(T, expected, actual);
-// }
+pub inline fn expectEqualDeep(expected: anytype, actual: anytype) error{TestExpectedEqual}!void {
+    const T = @TypeOf(expected, actual);
+    return expectEqualDeepInner(T, expected, actual);
+}
 
-// fn expectEqualDeepInner(comptime T: type, expected: T, actual: T) error{TestExpectedEqual}!void {
-//     switch (@typeInfo(@TypeOf(actual))) {
-//         .noreturn,
-//         .@"opaque",
-//         .frame,
-//         .@"anyframe",
-//         => @compileError("value of type " ++ @typeName(@TypeOf(actual)) ++ " encountered"),
+fn expectEqualDeepInner(comptime T: type, expected: T, actual: T) error{TestExpectedEqual}!void {
+    switch (@typeInfo(@TypeOf(actual))) {
+        .bool,
+        .int,
+        .float,
+        .@"enum",
+        => {
+            if (actual != expected) {
+                print("expected {}, found {}\n", .{ expected, actual });
+                return error.TestExpectedEqual;
+            }
+        },
 
-//         .undefined,
-//         .null,
-//         .void,
-//         => return,
+        .pointer => |pointer| {
+            switch (pointer.size) {
+                .slice => {
+                    if (expected.len != actual.len) {
+                        print("Slice len not the same, expected {d}, found {d}\n", .{ expected.len, actual.len });
+                        return error.TestExpectedEqual;
+                    }
+                    var i: usize = 0;
+                    while (i < expected.len) : (i += 1) {
+                        expectEqualDeep(expected[i], actual[i]) catch |e| {
+                            print("index {d} incorrect. expected {any}, found {any}\n", .{
+                                i, expected[i], actual[i],
+                            });
+                            return e;
+                        };
+                    }
+                },
+                else => @compileError("not thrift"),
+            }
+        },
 
-//         .type => {
-//             if (actual != expected) {
-//                 print("expected type {s}, found type {s}\n", .{ @typeName(expected), @typeName(actual) });
-//                 return error.TestExpectedEqual;
-//             }
-//         },
+        .@"struct" => |structType| {
+            if (comptime isArrayList(T)) {
+                return expectEqualDeep(expected.items, actual.items);
+            } else {
+                inline for (structType.fields) |field| {
+                    expectEqualDeep(@field(expected, field.name), @field(actual, field.name)) catch |e| {
+                        print("Field {s} incorrect. expected {any}, found {any}\n", .{ field.name, @field(expected, field.name), @field(actual, field.name) });
+                        return e;
+                    };
+                }
+            }
+        },
 
-//         .bool,
-//         .int,
-//         .float,
-//         .comptime_float,
-//         .comptime_int,
-//         .enum_literal,
-//         .@"enum",
-//         .@"fn",
-//         .error_set,
-//         => {
-//             if (actual != expected) {
-//                 print("expected {}, found {}\n", .{ expected, actual });
-//                 return error.TestExpectedEqual;
-//             }
-//         },
+        .@"union" => |union_info| {
+            _ = union_info;
+            const Tag = std.meta.Tag(@TypeOf(expected));
 
-//         .pointer => |pointer| {
-//             switch (pointer.size) {
-//                 // We have no idea what is behind those pointers, so the best we can do is `==` check.
-//                 .c, .many => {
-//                     if (actual != expected) {
-//                         print("expected {*}, found {*}\n", .{ expected, actual });
-//                         return error.TestExpectedEqual;
-//                     }
-//                 },
-//                 .one => {
-//                     // Length of those pointers are runtime value, so the best we can do is `==` check.
-//                     switch (@typeInfo(pointer.child)) {
-//                         .@"fn", .@"opaque" => {
-//                             if (actual != expected) {
-//                                 print("expected {*}, found {*}\n", .{ expected, actual });
-//                                 return error.TestExpectedEqual;
-//                             }
-//                         },
-//                         else => try expectEqualDeep(expected.*, actual.*),
-//                     }
-//                 },
-//                 .slice => {
-//                     if (expected.len != actual.len) {
-//                         print("Slice len not the same, expected {d}, found {d}\n", .{ expected.len, actual.len });
-//                         return error.TestExpectedEqual;
-//                     }
-//                     var i: usize = 0;
-//                     while (i < expected.len) : (i += 1) {
-//                         expectEqualDeep(expected[i], actual[i]) catch |e| {
-//                             print("index {d} incorrect. expected {any}, found {any}\n", .{
-//                                 i, expected[i], actual[i],
-//                             });
-//                             return e;
-//                         };
-//                     }
-//                 },
-//             }
-//         },
+            const expectedTag = @as(Tag, expected);
+            const actualTag = @as(Tag, actual);
 
-//         .array => |_| {
-//             if (expected.len != actual.len) {
-//                 print("Array len not the same, expected {d}, found {d}\n", .{ expected.len, actual.len });
-//                 return error.TestExpectedEqual;
-//             }
-//             var i: usize = 0;
-//             while (i < expected.len) : (i += 1) {
-//                 expectEqualDeep(expected[i], actual[i]) catch |e| {
-//                     print("index {d} incorrect. expected {any}, found {any}\n", .{
-//                         i, expected[i], actual[i],
-//                     });
-//                     return e;
-//                 };
-//             }
-//         },
+            try std.testing.expectEqual(expectedTag, actualTag);
 
-//         .vector => |info| {
-//             if (info.len != @typeInfo(@TypeOf(actual)).vector.len) {
-//                 print("Vector len not the same, expected {d}, found {d}\n", .{ info.len, @typeInfo(@TypeOf(actual)).vector.len });
-//                 return error.TestExpectedEqual;
-//             }
-//             var i: usize = 0;
-//             while (i < info.len) : (i += 1) {
-//                 expectEqualDeep(expected[i], actual[i]) catch |e| {
-//                     print("index {d} incorrect. expected {any}, found {any}\n", .{
-//                         i, expected[i], actual[i],
-//                     });
-//                     return e;
-//                 };
-//             }
-//         },
+            // we only reach this switch if the tags are equal
+            switch (expected) {
+                inline else => |val, tag| {
+                    try expectEqualDeep(val, @field(actual, @tagName(tag)));
+                },
+            }
+        },
 
-//         .@"struct" => |structType| {
-//             inline for (structType.fields) |field| {
-//                 expectEqualDeep(@field(expected, field.name), @field(actual, field.name)) catch |e| {
-//                     print("Field {s} incorrect. expected {any}, found {any}\n", .{ field.name, @field(expected, field.name), @field(actual, field.name) });
-//                     return e;
-//                 };
-//             }
-//         },
-
-//         .@"union" => |union_info| {
-//             if (union_info.tag_type == null) {
-//                 @compileError("Unable to compare untagged union values for type " ++ @typeName(@TypeOf(actual)));
-//             }
-
-//             const Tag = std.meta.Tag(@TypeOf(expected));
-
-//             const expectedTag = @as(Tag, expected);
-//             const actualTag = @as(Tag, actual);
-
-//             try expectEqual(expectedTag, actualTag);
-
-//             // we only reach this switch if the tags are equal
-//             switch (expected) {
-//                 inline else => |val, tag| {
-//                     try expectEqualDeep(val, @field(actual, @tagName(tag)));
-//                 },
-//             }
-//         },
-
-//         .optional => {
-//             if (expected) |expected_payload| {
-//                 if (actual) |actual_payload| {
-//                     try expectEqualDeep(expected_payload, actual_payload);
-//                 } else {
-//                     print("expected {any}, found null\n", .{expected_payload});
-//                     return error.TestExpectedEqual;
-//                 }
-//             } else {
-//                 if (actual) |actual_payload| {
-//                     print("expected null, found {any}\n", .{actual_payload});
-//                     return error.TestExpectedEqual;
-//                 }
-//             }
-//         },
-
-//         .error_union => {
-//             if (expected) |expected_payload| {
-//                 if (actual) |actual_payload| {
-//                     try expectEqualDeep(expected_payload, actual_payload);
-//                 } else |actual_err| {
-//                     print("expected {any}, found {any}\n", .{ expected_payload, actual_err });
-//                     return error.TestExpectedEqual;
-//                 }
-//             } else |expected_err| {
-//                 if (actual) |actual_payload| {
-//                     print("expected {any}, found {any}\n", .{ expected_err, actual_payload });
-//                     return error.TestExpectedEqual;
-//                 } else |actual_err| {
-//                     try expectEqualDeep(expected_err, actual_err);
-//                 }
-//             }
-//         },
-//     }
-// }
+        .optional => {
+            if (expected) |expected_payload| {
+                if (actual) |actual_payload| {
+                    try expectEqualDeep(expected_payload, actual_payload);
+                } else {
+                    print("expected {any}, found null\n", .{expected_payload});
+                    return error.TestExpectedEqual;
+                }
+            } else {
+                if (actual) |actual_payload| {
+                    print("expected null, found {any}\n", .{actual_payload});
+                    return error.TestExpectedEqual;
+                }
+            }
+        },
+        else => @compileError("not thrift"),
+    }
+}
 
 pub fn unionRead(T: type, alloc: std.mem.Allocator, r: *Reader) (CompactProtocolError || ThriftError)!T {
     var obj: ?T = null;
@@ -575,14 +487,6 @@ pub fn unionRead(T: type, alloc: std.mem.Allocator, r: *Reader) (CompactProtocol
     }
     try r.readStructEnd();
     return obj orelse ThriftError.CantParseUnion;
-}
-
-test "union" {
-    const U = union(enum) { x: i16, y: i8 };
-    const TagU = @typeInfo(U).@"union".tag_type.?;
-    const tag: TagU = .x;
-    const u: U = @unionInit(U, @tagName(tag), 10);
-    std.debug.print("u: {}\n", .{u});
 }
 
 test "read union" {

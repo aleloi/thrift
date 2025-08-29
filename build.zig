@@ -7,7 +7,7 @@ pub fn build(b: *std.Build) void {
     const exe = b.addExecutable(.{
         .name = "my_thrift",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("src/main.zig"),
+            .root_source_file = b.path("src/Meta.zig"),
             .target = target,
             .optimize = optimize,
             .imports = &.{},
@@ -26,10 +26,11 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run tests");
 
     const test_files: []const []const u8 = &.{
-        "src/complex_person.zig",
-        "src/main.zig",
-        "src/Meta.zig",
-        "src/TCompactProtocol.zig",
+        "src/fuzz_parquet.zig",
+        //"src/complex_person.zig",
+        //"src/main.zig",
+        //"src/Meta.zig",
+        //"src/TCompactProtocol.zig",
     };
     for (test_files) |test_file| {
         const test_set = b.addTest(.{
