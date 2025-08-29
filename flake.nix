@@ -22,7 +22,7 @@
       {
         devShell.x86_64-linux = pkgs.mkShell {
           nativeBuildInputs = [
-            zig-overlay.packages.${pkgs.system}."master-2025-08-10"
+            zig-overlay.packages.${pkgs.system}."0.15.1"
             pkgs.pkg-config
             pkgs.python313
           ];
