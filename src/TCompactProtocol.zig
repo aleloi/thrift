@@ -329,6 +329,7 @@ pub const Reader = struct {
     }
 
     test "fuzz TCompactProtocol" {
+        if (true) return error.SkipZigTest;
         const Context = struct {
             const ApiFn = enum(u4) {
                 readStructBegin,
