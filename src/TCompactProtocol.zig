@@ -117,6 +117,12 @@ const CType = enum(u4) {
     }
 };
 
+pub const MapBeginMeta = struct {
+    key_type: TType,
+    value_type: TType,
+    size: u32,
+};
+
 pub const ListBeginMeta = struct {
     elem_type: TType,
     size: u32,
@@ -186,7 +192,7 @@ pub const Reader = struct {
 
     pub fn readBinary(self: *Reader, alloc: std.mem.Allocator) (error{Overflow} || TransportStateAllocError)![]const u8 {
         try self.state.check(.initMany(&[_]State{ .VALUE, .CONTAINER }));
-        const len = try self.reader.takeLeb128(u64);
+        const len = try self.reader.takeLeb128(u32);
         const res = try self.reader.readAlloc(alloc, len);
         std.debug.assert(res.len == len);
         return res;
@@ -270,6 +276,24 @@ pub const Reader = struct {
         return byte == 1;
     }
 
+    // Not 'pub' - we only support skipping this.
+    fn readMapBegin(self: *Reader) CompactProtocolError!MapBeginMeta {
+        try self.state.check(.initMany(&[_]State{ .VALUE, .CONTAINER }));
+        if (check_states) {
+            try self.stacks.container_states.appendBounded(self.state);
+        }
+
+        const size = try self.reader.takeLeb128(u32);
+
+        const key_value_types = try self.reader.takeByte();
+        const value_type: CType = @enumFromInt(key_value_types & 0x0f);
+        const key_type: CType = @enumFromInt(key_value_types >> 4);
+        try self.state.transition(.initMany(&[_]State{ .VALUE, .CONTAINER }), .CONTAINER);
+        return .{ .key_type = try key_type.toTType(), .value_type = try value_type.toTType(), .size = size };
+    }
+
+    // fn readMapEnd(self: *Reader)
+
     pub fn skip(self: *Reader, field_type: TType) (CompactProtocolError || error{NotImplemented})!void {
         try self.state.check(.initMany(&[_]State{ .VALUE, .CONTAINER, .BOOL }));
 
@@ -305,7 +329,13 @@ pub const Reader = struct {
                 }
                 try self.readListEnd();
             },
-            .MAP => return error.NotImplemented, // Not needed for parquet footer
+            .MAP => {
+                const map_meta = try self.readMapBegin();
+                for (0..map_meta.size) |_| {
+                    try self.skip(map_meta.key_type);
+                    try self.skip(map_meta.value_type);
+                }
+            },
             .STRUCT => {
                 try self.readStructBegin();
                 while (true) {
